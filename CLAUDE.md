@@ -5,6 +5,23 @@ deterministic gate stack — not human approval gates — is the source of truth
 `docs/decisions/0001-agentic-gates.md`). One typed API surface, used identically by the UI
 and by agents.
 
+## What Glyde is
+
+Glyde is a **dyslexia-friendly speed reader**: it presents text so it is fast and
+low-fatigue to read. Three reading modes — **RSVP** (one word flashed on a centred red
+pivot), **Guided sweep**, and **Fading trail**. The **primary user has dyslexia**; terse,
+skimmable, low-fatigue presentation is the product's north star, not a nice-to-have.
+
+The working reader today is a **standalone prototype** in `prototype/` (`reader.html` +
+`launch.py`, launched by the `rsvp` command). The FastAPI + SvelteKit app is its intended
+home; moving the reader into the frontend is future work, not done yet. Read before reader
+work:
+
+- `docs/research/rsvp-reading-modes.md` — the research behind the design (RSVP/context
+  science, crowding & dyslexia, guided/fading, non-prose handling).
+- `docs/decisions/0004-reader-modes.md` — the load-bearing reader decisions.
+- `specs/001-block-pause/` — the next feature (pause-and-show for code/tables/diagrams).
+
 ## Where the thinking lives
 
 `docs/` is the canonical design vault. Read before non-trivial work:
