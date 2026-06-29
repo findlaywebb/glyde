@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- Dark-mode-first: the `dark` class is on the served shell so the app paints dark on first
+	render with no JS and no flash. `:root`=light / `.dark`=dark cascade lives in app.css.
+	Light is reachable only by editing the shell — there is no in-app switcher by default. -->
+<html lang="en" class="dark">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, interactive-widget=resizes-content"
+		/>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

@@ -1,0 +1,5 @@
+# Generated and vendored
+.svelte-kit/
+build/
+node_modules/
+src/lib/api/schema.d.ts

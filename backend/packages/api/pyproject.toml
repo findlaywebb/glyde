@@ -1,0 +1,23 @@
+[project]
+name = "glyde-api"
+version = "0.1.0"
+description = "Glyde FastAPI app — routers, request/response schemas, settings, CLI"
+requires-python = ">=3.13"
+dependencies = [
+    "glyde-core",
+    "glyde-adapters",
+    "fastapi>=0.136",
+    "uvicorn[standard]>=0.48",
+    "pydantic-settings>=2.14",
+    "typer>=0.26",
+]
+
+[project.scripts]
+glyde = "glyde.api.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "glyde.api"

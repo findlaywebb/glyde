@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RSVP Reader</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  @font-face {
+    font-family: 'OpenDyslexic';
+    src: url('https://cdn.jsdelivr.net/gh/antijingoist/opendyslexic/compiled/OpenDyslexic-Regular.woff') format('woff');
+    font-display: swap;
+  }
+  :root {
+    --bg: #11151c; --fg: #e6edf3; --muted: #7d8590; --accent: #ff5c5c;
+    --panel: #1b2027; --line: #2a313b; --ctxscale: .7;
+  }
+  [data-theme="light"] { --bg:#fdfdf8; --fg:#1a1a1a; --muted:#999; --accent:#d12; --panel:#f0efe8; --line:#dcdbd2; }
+  [data-theme="sepia"] { --bg:#f4ecd8; --fg:#3a2f23; --muted:#a8987e; --accent:#b3402a; --panel:#ece1c8; --line:#ddd0b3; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  /* ---- stage ---- */
+  #stage { flex: 1; position: relative; }
+  #rsvpStage { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  /* fixation guides — scale with word size, pinned to centre */
+  #guides { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: var(--wpx, 64px); pointer-events: none; }
+  .tick { position: absolute; left: 0; transform: translateX(-50%); width: .04em; min-width: 2px;
+    background: var(--muted); opacity: .5; }
+  .tick.top { top: -1.4em; height: .8em; }
+  .tick.bot { top: .6em; height: .8em; }
+  /* focal word — measured and translated so the pivot glyph sits dead-centre */
+  #wordwrap { position: relative; width: 100%; height: 1.5em; font-size: var(--wpx, 64px); overflow: hidden; }
+  #word { position: absolute; top: 50%; left: 0; transform: translateY(-50%);
+    white-space: nowrap; font-size: var(--wpx, 64px); line-height: 1;
+    letter-spacing: var(--ls, 0px); font-weight: 700; }
+  #word .p { color: var(--accent); }
+  #word .ctxw { color: var(--muted); font-weight: 400; opacity: .42;
+    font-size: calc(var(--wpx, 64px) * var(--ctxscale)); }
+  #word[data-mode="sentence"] .ctxw { opacity: .3; }
+  #word .ctxw.prev { margin-right: 1em; }
+  #word .ctxw.next { margin-left: 1em; }
+  /* above/below context rows — own layer, never perturb the pivot */
+  .ctxrow { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    text-align: center; font-size: calc(var(--wpx, 64px) * .4); color: var(--muted);
+    opacity: .5; font-weight: 400; pointer-events: none; }
+  #ctxAbove { margin-top: calc(var(--wpx, 64px) * -0.95); }
+  #ctxBelow { margin-top: calc(var(--wpx, 64px) * 0.95); }
+  /* flow modes (guided / fading) — full text visible, position moves through it */
+  #flowStage { position: absolute; top: 6%; bottom: 6%; left: 50%; transform: translateX(-50%);
+    width: min(62ch, 92%); overflow-y: auto; text-align: left;
+    font-size: calc(var(--wpx, 64px) * .42); line-height: 2.1; letter-spacing: var(--ls, 0px);
+    scrollbar-width: thin; }
+  #flowStage .fw { transition: opacity .4s ease, color .2s ease; }
+  #flowStage.guided .fw { opacity: .8; }
+  #flowStage.guided .fw.read { opacity: .22; }
+  #flowStage.guided .fw.cur { opacity: 1; color: var(--accent); }
+  #flowStage.fading .fw { opacity: 1; }
+  #flowStage.fading .fw.read { opacity: 0; }
+  #flowStage.fading .fw.cur { color: var(--accent); }
+  /* mark current word without changing its width (bold reflows the line) */
+  #flowStage .fw.cur { text-decoration: underline; text-decoration-color: var(--accent);
+    text-underline-offset: .18em; text-decoration-thickness: .08em; }
+  #idle { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-weight: 400; font-size: 28px; text-align: center; padding: 0 1em; }
+  /* ---- progress ---- */
+  #prog { height: 6px; background: var(--line); cursor: pointer; flex: 0 0 auto; }
+  #bar { height: 100%; width: 0; background: var(--accent); }
+  /* ---- controls ---- */
+  #ctl {
+    flex: 0 0 auto; background: var(--panel); border-top: 1px solid var(--line);
+    padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center;
+    font-family: 'Lexend', system-ui, sans-serif; font-size: 13px;
+  }
+  #ctl .grp { display: flex; align-items: center; gap: 8px; }
+  #ctl label { color: var(--muted); white-space: nowrap; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 7px;
+    padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button.sec { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  button.mini { padding: 5px 9px; font-size: 13px; line-height: 1; }
+  input[type=range] { width: 110px; accent-color: var(--accent); }
+  input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+  select, input[type=number] { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 7px; font: inherit; }
+  select:disabled { opacity: .4; }
+  .val { color: var(--fg); min-width: 3.2em; display: inline-block; font-variant-numeric: tabular-nums; }
+  #meta { color: var(--muted); margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  kbd { background: var(--line); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+  #help { color: var(--muted); font-size: 11px; width: 100%; }
+  #paste { width: 100%; display: none; gap: 8px; }
+  #paste textarea { flex: 1; height: 60px; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; resize: vertical; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="rsvpStage">
+      <div id="guides"><div class="tick top"></div><div class="tick bot"></div></div>
+      <div id="ctxAbove" class="ctxrow"></div>
+      <div id="ctxBelow" class="ctxrow"></div>
+      <div id="wordwrap"><div id="word"></div></div>
+    </div>
+    <div id="flowStage" style="display:none"></div>
+    <div id="idle" style="display:none">Press <kbd>Space</kbd> to start &nbsp;·&nbsp; or paste text below</div>
+  </div>
+  <div id="prog" title="Click to scrub"><div id="bar"></div></div>
+  <div id="ctl">
+    <div class="grp">
+      <button id="play">▶ Play</button>
+      <button class="sec" id="restart" title="Restart (r)">↻ Restart</button>
+    </div>
+    <div class="grp"><label title="Reading mode (m to cycle)">Mode</label>
+      <select id="mode">
+        <option value="rsvp">RSVP (flash)</option>
+        <option value="guided">Guided sweep</option>
+        <option value="fading">Fading trail</option>
+      </select>
+    </div>
+    <div class="grp"><label title="RSVP: surrounding words (c to cycle)">Context</label>
+      <select id="context">
+        <option value="off">Off</option>
+        <option value="ab" selected>Above / below</option>
+        <option value="line">Same line</option>
+        <option value="sentence">Sentence</option>
+      </select>
+    </div>
+    <div class="grp"><label title="Size of surrounding context words">Ctx size</label>
+      <input type="range" id="ctxscale" min="0.4" max="1" step="0.05" value="0.7">
+    </div>
+    <div class="grp"><label>Speed</label>
+      <input type="range" id="wpm" min="100" max="900" step="25" value="350">
+      <span class="val"><span id="wpmv">350</span> wpm</span>
+    </div>
+    <div class="grp"><label>Chunk</label>
+      <select id="chunk"><option value="1">1 word</option><option value="2">2 words</option><option value="3">3 words</option></select>
+    </div>
+    <label class="grp" title="Ease into the target speed over the first ~30 words (g)">
+      <input type="checkbox" id="ramp"> Ramp up
+    </label>
+    <div class="grp"><label>Size</label>
+      <input type="range" id="size" min="32" max="130" step="2" value="64">
+    </div>
+    <div class="grp"><label>Spacing</label>
+      <input type="range" id="space" min="-12" max="8" step="0.5" value="0">
+      <button class="sec mini" id="spacereset" title="Reset spacing to 0">↺</button>
+    </div>
+    <div class="grp"><label>Font</label>
+      <select id="font">
+        <option value="'Atkinson Hyperlegible', sans-serif">Atkinson Hyperlegible</option>
+        <option value="'Lexend', sans-serif">Lexend</option>
+        <option value="'OpenDyslexic', sans-serif">OpenDyslexic</option>
+        <option value="system-ui, sans-serif">System sans</option>
+        <option value="Georgia, serif">Serif</option>
+        <option value="ui-monospace, monospace">Mono</option>
+      </select>
+    </div>
+    <div class="grp"><label>Theme</label>
+      <select id="theme"><option value="">Dark</option><option value="light">Light</option><option value="sepia">Sepia</option></select>
+    </div>
+    <button class="sec" id="pastebtn">Paste text</button>
+    <span id="meta"></span>
+    <div id="paste"><textarea id="pastearea" placeholder="Paste text here, then click Load"></textarea><button id="loadpaste">Load</button></div>
+    <div id="help">
+      <kbd>Space</kbd> play/pause · <kbd>←</kbd>/<kbd>→</kbd> back/skip · <kbd>↑</kbd>/<kbd>↓</kbd> speed · <kbd>m</kbd> mode · <kbd>c</kbd> context · <kbd>g</kbd> ramp · <kbd>r</kbd> restart · <kbd>f</kbd> font · <kbd>t</kbd> theme
+    </div>
+  </div>
+
+<script>
+const INJECTED_TEXT = null; // __RSVP_INJECT__
+const SAMPLE = "Welcome to your RSVP reader. Words flash one at a time, centred on the red pivot letter so your eyes never have to move. Use the speed slider, or the up and down arrows, to find a pace that feels easy. Try the Mode menu for guided and fading reading too. This is the sample text — launch the reader on a file with the rsvp command and your own text appears here.";
+
+const RAMP_WORDS = 30;        // words taken to reach full speed
+const RAMP_START_FRAC = 0.45; // fraction of target wpm a ramp begins at
+const SENTENCE_PAUSE = 2.2;   // pause weight that marks a sentence end
+const PARA_PAUSE = 2.8;       // pause weight that marks a paragraph end
+const SETTINGS_KEY = 'rsvp.settings.v2';
+const PERSIST = ['mode', 'context', 'ctxscale', 'wpm', 'chunk', 'size', 'space', 'font', 'theme'];
+const PERSIST_CHK = ['ramp'];
+
+const $ = id => document.getElementById(id);
+
+// ---- tokenise into words, tagging trailing punctuation weight ----
+function tokenize(text) {
+  const out = [];
+  const paras = text.replace(/\r/g, '').split(/\n{2,}/);
+  paras.forEach((para, pi) => {
+    const words = para.split(/\s+/).filter(Boolean);
+    words.forEach(w => {
+      let pause = 1;
+      if (/[,;:)\]]$/.test(w)) pause = 1.6;
+      if (/[.!?…]$/.test(w)) pause = SENTENCE_PAUSE;
+      out.push({ w, pause });
+    });
+    if (pi < paras.length - 1 && words.length) out[out.length - 1].pause = PARA_PAUSE;
+  });
+  return out;
+}
+
+// ---- optimal recognition point (pivot index) ----
+function pivot(len) {
+  if (len <= 1) return 0;
+  if (len <= 5) return 1;
+  if (len <= 9) return 2;
+  if (len <= 13) return 3;
+  return 4;
+}
+
+// ---- sentence span containing word i: [start, endExclusive] ----
+function sentenceRange(i) {
+  let s = i; while (s > 0 && tokens[s - 1].pause < SENTENCE_PAUSE) s--;
+  let e = i; while (e < tokens.length - 1 && tokens[e].pause < SENTENCE_PAUSE) e++;
+  return [s, e + 1];
+}
+
+let tokens = tokenize(typeof INJECTED_TEXT === 'string' && INJECTED_TEXT ? INJECTED_TEXT : SAMPLE);
+let idx = 0, playing = false, timer = null, wordsThisRun = 0;
+let flowSpans = [], flowBuilt = false;
+
+function chunkAt(i) {
+  const n = parseInt($('chunk').value, 10);
+  const slice = tokens.slice(i, i + n);
+  if (!slice.length) return { text: '', pause: 1, count: 1 };
+  return { text: slice.map(t => t.w).join(' '), pause: slice[slice.length - 1].pause, count: slice.length };
+}
+
+// effective wpm, accounting for ramp-up
+function effWpm() {
+  const target = parseInt($('wpm').value, 10);
+  if (!$('ramp').checked || !playing) return target;
+  const f = Math.min(1, wordsThisRun / RAMP_WORDS);
+  const start = Math.max(150, target * RAMP_START_FRAC);
+  return Math.round(start + (target - start) * f);
+}
+
+function focalHTML(text) {
+  const p = pivot(text.length);
+  return `<span class="l">${esc(text.slice(0, p))}</span>` +
+         `<span class="p">${esc(text[p] || '')}</span>` +
+         `<span class="r">${esc(text.slice(p + 1))}</span>`;
+}
+
+// build the inline content of #word for the active RSVP context mode
+function buildWord(mode) {
+  const cur = chunkAt(idx);
+  const focal = focalHTML(cur.text);
+  if (mode === 'line') {
+    const n = parseInt($('chunk').value, 10);
+    const prev = idx > 0 ? `<span class="ctxw prev">${esc(tokens[idx - 1].w)}</span>` : '';
+    const next = idx + n < tokens.length ? `<span class="ctxw next">${esc(tokens[idx + n].w)}</span>` : '';
+    return prev + focal + next;
+  }
+  if (mode === 'sentence') {
+    const [s, e] = sentenceRange(idx);
+    let html = '';
+    for (let i = s; i < e;) {
+      if (i === idx) { html += `<span class="focalw">${focal}</span>`; i += cur.count; }
+      else { html += `<span class="ctxw">${esc(tokens[i].w)}</span>`; i++; }
+      if (i < e) html += ' ';
+    }
+    return html;
+  }
+  return focal; // off, ab
+}
+
+function renderRsvp() {
+  const mode = $('context').value;
+  const word = $('word');
+  word.style.display = '';
+  word.dataset.mode = mode;
+  word.innerHTML = buildWord(mode);
+  // lock pivot glyph to centre by measure-and-translate
+  const wrap = $('wordwrap');
+  const pv = word.querySelector('.p');
+  const center = wrap.clientWidth / 2;
+  const px = pv ? pv.offsetLeft + pv.offsetWidth / 2 : word.offsetWidth / 2;
+  word.style.left = (center - px) + 'px';
+  // above/below rows
+  const ab = mode === 'ab';
+  const n = parseInt($('chunk').value, 10);
+  $('ctxAbove').textContent = ab && idx > 0 ? tokens[idx - 1].w : '';
+  $('ctxBelow').textContent = ab && idx + n < tokens.length ? tokens[idx + n].w : '';
+}
+
+function buildFlow() {
+  const fs = $('flowStage');
+  fs.innerHTML = '';
+  flowSpans = [];
+  const frag = document.createDocumentFragment();
+  tokens.forEach(t => {
+    const s = document.createElement('span');
+    s.className = 'fw'; s.textContent = t.w;
+    frag.appendChild(s);
+    flowSpans.push(s);
+    frag.appendChild(document.createTextNode(' '));
+    if (t.pause >= PARA_PAUSE) { frag.appendChild(document.createElement('br')); frag.appendChild(document.createElement('br')); }
+  });
+  fs.appendChild(frag);
+  flowBuilt = true;
+}
+
+function updateFlow(mode) {
+  const fs = $('flowStage');
+  fs.className = mode;
+  const here = Math.min(idx, flowSpans.length - 1);
+  for (let k = 0; k < flowSpans.length; k++) {
+    flowSpans[k].className = 'fw' + (k < idx ? ' read' : k === idx ? ' cur' : ' ahead');
+  }
+  // Keep the text still; only jump (instantly) when the current word leaves a
+  // comfortable band. Continuous re-centring scrolls like a teleprompter and
+  // causes motion sickness.
+  const cur = flowSpans[here];
+  if (cur) {
+    const h = fs.clientHeight;
+    const top = cur.offsetTop - fs.scrollTop;
+    if (top > h * 0.72 || top < h * 0.18) {
+      fs.scrollTop = Math.max(0, cur.offsetTop - h * 0.40);
+    }
+  }
+}
+
+function updateMeta() {
+  $('bar').style.width = (Math.min(idx, tokens.length) / tokens.length) * 100 + '%';
+  const w = effWpm();
+  const remain = Math.ceil((tokens.length - Math.min(idx, tokens.length)) / parseInt($('wpm').value, 10) * 60);
+  const ramping = $('ramp').checked && playing && wordsThisRun < RAMP_WORDS;
+  $('meta').textContent = `${Math.min(idx, tokens.length)}/${tokens.length}` + (ramping ? ` · ${w} wpm ↗` : '') + ` · ~${fmt(remain)} left`;
+}
+
+function render() {
+  const mode = $('mode').value;
+  const rsvp = mode === 'rsvp';
+  $('context').disabled = !rsvp;
+  $('rsvpStage').style.display = rsvp ? '' : 'none';
+  $('flowStage').style.display = rsvp ? 'none' : '';
+  if (rsvp) {
+    if (idx >= tokens.length) { showIdle('✓ Done — press r to restart'); updateMeta(); return; }
+    $('idle').style.display = 'none';
+    renderRsvp();
+  } else {
+    $('idle').style.display = 'none';
+    if (!flowBuilt) buildFlow();
+    updateFlow(mode);
+  }
+  updateMeta();
+}
+function showIdle(msg) { $('word').style.display = 'none'; $('ctxAbove').textContent = ''; $('ctxBelow').textContent = '';
+  const i = $('idle'); i.style.display = 'flex'; i.innerHTML = msg; }
+function esc(s) { return (s || '').replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+function fmt(s) { const m = Math.floor(s/60), r = s%60; return m ? `${m}m ${r}s` : `${r}s`; }
+
+function step() {
+  if (!playing) return;
+  const cur = chunkAt(idx);
+  render();
+  const base = 60000 / effWpm();
+  const lenFactor = 1 + Math.max(0, cur.text.length - 8) * 0.03;
+  const delay = base * cur.count * cur.pause * lenFactor;
+  idx += cur.count;
+  wordsThisRun += cur.count;
+  if (idx >= tokens.length) { timer = setTimeout(() => { playing = false; setBtn(); render(); }, delay); return; }
+  timer = setTimeout(step, delay);
+}
+function play() { if (idx >= tokens.length) idx = 0; wordsThisRun = 0; playing = true; setBtn(); step(); }
+function pause() { playing = false; setBtn(); clearTimeout(timer); }
+function toggle() { playing ? pause() : play(); }
+function setBtn() { $('play').textContent = playing ? '⏸ Pause' : '▶ Play'; }
+function restart() { pause(); idx = 0; render(); }
+function skip(n) { pause(); idx = Math.max(0, Math.min(tokens.length, idx + n)); render(); }
+function loadText(t) { tokens = tokenize(t); flowBuilt = false; restart(); }
+
+// ---- persistence (localStorage; survives relaunch on the stable reader path) ----
+function saveSettings() {
+  const s = {};
+  PERSIST.forEach(id => s[id] = $(id).value);
+  PERSIST_CHK.forEach(id => s[id] = $(id).checked);
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch (e) {}
+}
+function loadSettings() {
+  let s; try { s = JSON.parse(localStorage.getItem(SETTINGS_KEY)); } catch (e) {}
+  if (!s) return;
+  PERSIST.forEach(id => { if (s[id] != null) $(id).value = s[id]; });
+  PERSIST_CHK.forEach(id => { if (s[id] != null) $(id).checked = s[id]; });
+}
+function applyVisuals() {
+  document.documentElement.style.setProperty('--wpx', $('size').value + 'px');
+  document.documentElement.style.setProperty('--ls', $('space').value + 'px');
+  document.documentElement.style.setProperty('--ctxscale', $('ctxscale').value);
+  $('word').style.fontFamily = $('font').value;
+  $('flowStage').style.fontFamily = $('font').value;
+  document.documentElement.dataset.theme = $('theme').value;
+  $('wpmv').textContent = $('wpm').value;
+}
+
+// ---- controls ----
+function onChange() { saveSettings(); render(); }
+$('play').onclick = toggle;
+$('restart').onclick = restart;
+$('prog').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); pause(); idx = Math.floor((e.clientX - r.left) / r.width * tokens.length); render(); };
+$('mode').onchange = onChange;
+$('wpm').oninput = e => { $('wpmv').textContent = e.target.value; onChange(); };
+$('chunk').onchange = onChange;
+$('context').onchange = onChange;
+$('ctxscale').oninput = () => { document.documentElement.style.setProperty('--ctxscale', $('ctxscale').value); saveSettings(); render(); };
+$('ramp').onchange = onChange;
+$('size').oninput = () => { document.documentElement.style.setProperty('--wpx', $('size').value + 'px'); saveSettings(); render(); };
+$('space').oninput = () => { document.documentElement.style.setProperty('--ls', $('space').value + 'px'); saveSettings(); render(); };
+$('spacereset').onclick = () => { $('space').value = 0; document.documentElement.style.setProperty('--ls', '0px'); saveSettings(); render(); };
+$('font').onchange = () => { applyVisuals(); saveSettings(); render(); };
+$('theme').onchange = () => { document.documentElement.dataset.theme = $('theme').value; saveSettings(); };
+$('pastebtn').onclick = () => { const p = $('paste'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; };
+$('loadpaste').onclick = () => { const v = $('pastearea').value.trim(); if (v) { loadText(v); $('paste').style.display = 'none'; } };
+
+function cycle(id) { const s = $(id); s.selectedIndex = (s.selectedIndex + 1) % s.length; s.onchange(); }
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') return;
+  const k = e.key;
+  if (k === ' ') { e.preventDefault(); toggle(); }
+  else if (k === 'ArrowRight') skip(parseInt($('chunk').value, 10));
+  else if (k === 'ArrowLeft') skip(-parseInt($('chunk').value, 10));
+  else if (k === 'ArrowUp') { e.preventDefault(); $('wpm').value = Math.min(900, +$('wpm').value + 25); $('wpm').oninput({ target: $('wpm') }); }
+  else if (k === 'ArrowDown') { e.preventDefault(); $('wpm').value = Math.max(100, +$('wpm').value - 25); $('wpm').oninput({ target: $('wpm') }); }
+  else if (k === 'm') cycle('mode');
+  else if (k === 'c') { if (!$('context').disabled) cycle('context'); }
+  else if (k === 'g') { $('ramp').checked = !$('ramp').checked; onChange(); }
+  else if (k === 'r') restart();
+  else if (k === 'f') cycle('font');
+  else if (k === 't') cycle('theme');
+});
+
+// ---- init ----
+loadSettings();
+if (!['off','ab','line','sentence'].includes($('context').value)) $('context').value = 'ab';
+applyVisuals();
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,2 @@
+// Component-test setup (jsdom project): pull in jest-dom matchers (toBeInTheDocument, etc).
+import '@testing-library/jest-dom/vitest';

@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.import_linter_cache/
+
+# uv
+# (uv.lock is committed; .venv is not)
+
+# Node / SvelteKit (frontend/)
+node_modules/
+.svelte-kit/
+frontend/build/
+
+# Local data — SQLite is the source of truth but is per-machine, not committed
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Obsidian (docs/ is a vault; per-machine config stays local)
+docs/.obsidian/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

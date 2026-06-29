@@ -1,0 +1,15 @@
+[project]
+name = "glyde-adapters"
+version = "0.1.0"
+description = "Glyde concrete port implementations — SQLite store and external clients"
+requires-python = ">=3.13"
+dependencies = [
+    "glyde-core",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "glyde.adapters"

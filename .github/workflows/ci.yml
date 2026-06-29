@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          version: "0.11.21"
+
+      # Abort the sync before any malicious code runs if a locked package matches an
+      # OSV MAL advisory (uv's opt-in malware check).
+      - name: Sync workspace
+        run: uv sync --locked --preview-features malware-check
+        env:
+          UV_MALWARE_CHECK: "1"
+
+      # Fail the build on any known advisory in uv.lock (scanned against OSV).
+      - name: Audit dependencies
+        run: uv audit --preview-features audit-command
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Types (ty)
+        run: uv run ty check
+
+      - name: Boundaries (import-linter)
+        run: uv run lint-imports
+
+      - name: Tests
+        run: uv run pytest --cov
+
+  # The frontend's own toolchain — kept separate from the uv-only `checks` job. The
+  # OpenAPI-artifact drift gate (committed openapi.json vs the live app) rides `checks`
+  # via pytest; this job owns the schema.d.ts half plus build/lint/type/test.
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6.0.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        run: npm install
+
+      # schema.d.ts must match what openapi-typescript would regenerate from the
+      # committed docs/schemas/openapi.json (the seam's frontend-side drift gate).
+      - name: Typed-seam drift gate
+        run: npm run check:api-drift
+
+      - name: Lint (prettier + eslint + boundaries)
+        run: npm run lint
+
+      - name: Boundaries (dependency-cruiser, no cycles)
+        run: npm run boundaries
+
+      - name: Types (svelte-check, zero a11y)
+        run: npm run check
+
+      - name: Types (tsc --noEmit)
+        run: npm run typecheck
+
+      - name: Tests (vitest)
+        run: npm run test
+
+      - name: Dead-code sweep (knip, non-fatal)
+        run: npm run knip
+
+      - name: Build (adapter-node)
+        run: npm run build

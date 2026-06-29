@@ -1,0 +1,15 @@
+[project]
+name = "glyde-core"
+version = "0.1.0"
+description = "Glyde domain models, ports, and pure logic — no I/O"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.13",
+]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.9"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "glyde.core"

@@ -1,0 +1,184 @@
+# Workspace root (virtual — no code here). The backend layers are separate uv workspace
+# members under backend/packages/, all portions of the `glyde` namespace package.
+# The [tool.importlinter] section is the machine-readable boundary contract; BOUNDARIES.md
+# is the human-readable one. Changing the contracts is an architecture decision (ADR).
+
+[tool.uv.workspace]
+members = ["backend/packages/*"]
+
+[tool.uv.sources]
+glyde-core = { workspace = true }
+glyde-adapters = { workspace = true }
+glyde-api = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "glyde-core",
+    "glyde-adapters",
+    "glyde-api",
+    "pytest>=9",
+    "pytest-asyncio>=1.4",
+    "hypothesis>=6.155",
+    "httpx>=0.28",
+    "pytest-randomly>=4.1",
+    "pytest-cov>=7.1",
+    "import-linter>=2.11",
+    "ruff>=0.15",
+    "ty>=0.0.49",
+    "vulture>=2.16",
+]
+
+# ---------------------------------------------------------------------------
+# Boundary contract — dependencies point inward (docs/decisions/0002)
+# ---------------------------------------------------------------------------
+
+[tool.importlinter]
+root_packages = ["glyde"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layer ordering (dependencies point inward)"
+type = "layers"
+layers = ["glyde.api", "glyde.adapters", "glyde.core"]
+
+[[tool.importlinter.contracts]]
+name = "Core has no I/O or framework deps"
+type = "forbidden"
+source_modules = ["glyde.core"]
+forbidden_modules = [
+    "fastapi",
+    "uvicorn",
+    "aiosqlite",
+    "sqlalchemy",
+    "httpx",
+]
+
+# ---------------------------------------------------------------------------
+# Lint / format
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = [
+    "backend/packages/core/src",
+    "backend/packages/adapters/src",
+    "backend/packages/api/src",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "A",        # flake8-builtins — agents shadow id/type/list reflexively
+    "ANN",      # annotations everywhere — ty is the sole type gate; gaps weaken it
+    "ASYNC",    # flake8-async
+    "B",        # flake8-bugbear
+    "BLE",      # no blind except — fail loud, never swallow
+    "C4",       # flake8-comprehensions
+    "C90",      # mccabe complexity
+    "D",        # pydocstyle — docstring *presence*; contract-quality is handwritten
+    "DTZ",      # naive-datetime ban — backs the canonical-UTC timestamp rule
+    "ERA",      # no commented-out code — delete it, git remembers
+    "FAST",     # FastAPI patterns
+    "FBT",      # boolean traps — flags become keyword-only
+    "G",        # logging format
+    "ICN",      # import naming conventions
+    "ISC",      # implicit str concat — the missing-comma-in-a-list bug
+    "N",        # pep8 naming
+    "PL",       # full pylint set (PLC/PLE/PLR/PLW)
+    "PTH",      # pathlib over os.path
+    "RET",      # flake8-return
+    "SIM",      # flake8-simplify
+    "T20",      # no print — lint-speed twin of the architecture AST test
+    "TC",       # type-checking import placement
+    "TID",      # tidy imports + banned APIs below
+    "TRY",      # tryceratops — bad exception patterns
+    "FURB",     # refurb — idiomatic Python
+    "RUF",      # ruff-native
+]
+ignore = [
+    "E501",     # line length is the formatter's job
+    "TRY003",   # long exception messages are fine
+    "ISC001",   # conflicts with the ruff formatter
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 10
+max-returns = 5
+max-statements = 40
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.environ".msg = "Config is injected (pydantic-settings in glyde.api); never read the environment directly."
+"os.getenv".msg = "Config is injected (pydantic-settings in glyde.api); never read the environment directly."
+
+[tool.ruff.lint.per-file-ignores]
+# D deliberately stays ON in tests: a test's docstring states what it proves.
+"backend/tests/**" = [
+    "PLR2004",  # magic values are fine in assertions
+    "ANN",      # fixture/test signatures stay unannotated-friendly (ty still checks bodies)
+    "FBT",      # fixtures pass flags positionally
+]
+
+# ---------------------------------------------------------------------------
+# Types — ty is the sole type gate (no pyright/mypy)
+# ---------------------------------------------------------------------------
+
+[tool.ty.environment]
+python-version = "3.13"
+root = [
+    "backend/packages/core/src",
+    "backend/packages/adapters/src",
+    "backend/packages/api/src",
+    "backend/tests",  # resolves the `support` test-helper package (pytest pythonpath twin)
+]
+
+[tool.ty.rules]
+all = "error"
+unresolved-import = "warn"  # third-party stubs are sometimes missing
+
+[tool.ty.src]
+include = ["backend"]
+
+# ---------------------------------------------------------------------------
+# Dead code (run weekly, warn-level — not a commit gate)
+# ---------------------------------------------------------------------------
+
+[tool.vulture]
+paths = ["backend/packages"]
+min_confidence = 80
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "--strict-markers --strict-config -q"
+pythonpath = ["backend/tests"]
+filterwarnings = ["error"]
+xfail_strict = true
+asyncio_mode = "auto"
+
+# ---------------------------------------------------------------------------
+# Coverage — the gate is the CI-only `uv run pytest --cov` invocation; plain
+# `uv run pytest` stays coverage-free for fast local loops. glyde.core is pure
+# logic, held at 100% statement+branch (backend/CLAUDE.md).
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+branch = true
+source = ["glyde.core"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
