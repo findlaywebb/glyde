@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Artifact</title>
+<!--
+  Self-contained artifact template. Everything is inline by design:
+  no CDN <link>/<script src>, no external fonts, no fetch() of sibling files.
+  The file must work when opened by double-click (file://), offline, or emailed.
+  Inline your data into the DATA object below; render the body.
+
+  THEME: default is neutral auto light/dark. For internal FMP sharing set
+  <html data-theme="fmp"> (navy bg, on-brand dark — the usual choice) or
+  <html data-theme="fmp-light"> (cream/navy, matches the slide deck).
+  The --fmp-* accent tokens are available in every theme for chart series,
+  severity badges, etc.
+
+  PATH BACK TO CLAUDE: don't reflexively bolt a page-level "copy as prompt"
+  button on. Pick the form that fits (see the skill body):
+    - whole-state export  -> the #copyJson button below (honest: it exports state)
+    - item-level prompt   -> the per-item button in the render loop, which emits a
+                             SPECIFIC prompt about that one item and shows it (title=)
+  A read-only one-shot report may need neither. Delete what you don't use.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #666; --line: #e2e2e2;
+    --accent: #2563eb; --card: #f7f7f8;
+    /* FMP brand palette — always available, for accenting in any theme. */
+    --fmp-navy: #232147; --fmp-cream: #f3f0ec; --fmp-coral: #e6716e;
+    --fmp-gold: #e2aa19; --fmp-green: #60a38e; --fmp-blue: #6c94cb;
+    --fmp-red:  #d5383a; --fmp-orange: #ec8d4c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171a; --fg: #e8e8e8; --muted: #9aa0a6; --line: #2c2f33;
+            --accent: #6ea8fe; --card: #1d2024; }
+  }
+  /* Opt-in FMP themes (set on <html data-theme="...">). fmp = on-brand dark. */
+  [data-theme="fmp"] {
+    color-scheme: dark;
+    --bg: var(--fmp-navy); --fg: var(--fmp-cream); --muted: #a09ebd;
+    --line: #36345a; --accent: var(--fmp-coral); --card: #2b2952;
+  }
+  [data-theme="fmp-light"] {
+    color-scheme: light;
+    --bg: var(--fmp-cream); --fg: var(--fmp-navy); --muted: #5b5a6e;
+    --line: #dcd6cd; --accent: var(--fmp-coral); --card: #fbf9f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .sub { color: var(--muted); margin: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); }
+  th { font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.1rem; }
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  /* Code blocks: Monokai Dimmed, dark in every theme (reads like an editor).
+     For highlighting, wrap tokens in <span class="t-c|t-s|t-n|t-k|t-f|t-t|t-v">;
+     an un-tokenised block still renders fine on the dimmed base. The copy button
+     is attached to every <pre> by JS below. There is no CDN highlighter — full
+     token highlighting would need one inlined (heavy); usually not worth it. */
+  pre {
+    background: #1e1e1e; color: #c5c8c6; border: 1px solid #303030;
+    border-radius: 8px; padding: .85rem 1rem; margin: 1rem 0; overflow: auto;
+    font: 13px/1.5 "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  .t-c { color: #9a9b99; font-style: italic; } /* comment */
+  .t-s { color: #9aa83a; }                      /* string */
+  .t-n { color: #6089b4; }                      /* number / constant */
+  .t-k { color: #9872a2; }                      /* keyword / storage */
+  .t-f { color: #b05279; }                      /* function */
+  .t-t { color: #ce6700; }                      /* type / builtin */
+  .t-v { color: #c9d0d3; }                      /* variable */
+  .code { position: relative; }
+  .code .copy {
+    position: absolute; top: .5rem; right: .5rem; opacity: 0; transition: opacity .15s;
+    background: #2d2d2d; color: #c5c8c6; border-color: #3a3a3a;
+  }
+  .code:hover .copy { opacity: 1; }
+  .item { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  button {
+    font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--accent);
+    color: #fff; padding: .35rem .7rem; border-radius: 8px; white-space: nowrap;
+  }
+  button.secondary { background: transparent; color: var(--fg); }
+  button.tiny { font-size: .8rem; padding: .25rem .55rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Artifact title</h1>
+      <p class="sub">One-line description of what this shows.</p>
+    </div>
+    <!-- Whole-state export. Keep this when the user tweaks the page as a whole;
+         drop it for a read-only report. It exports state — it is NOT a prompt. -->
+    <button id="copyJson" class="secondary">Copy as JSON</button>
+  </header>
+
+  <!-- Body: render from DATA. Replace this with tables / cards / SVG / controls. -->
+  <div id="content"></div>
+
+  <!-- Example code block. Monokai-dimmed; tokens wrapped in <span class="t-*">;
+       a hover copy button is added automatically by the JS below. -->
+  <pre><span class="t-k">def</span> <span class="t-f">greet</span>(name):
+    <span class="t-k">return</span> <span class="t-s">f"hello, {name}"</span>  <span class="t-c"># f-string</span></pre>
+</div>
+
+<!-- Inline the data the page renders from. Edit this object, not the markup. -->
+<script id="data" type="application/json">
+{ "title": "Artifact title",
+  "items": [
+    { "id": "a", "title": "First item", "detail": "What this item is." },
+    { "id": "b", "title": "Second item", "detail": "What this item is." }
+  ] }
+</script>
+
+<script>
+  const DATA = JSON.parse(document.getElementById("data").textContent);
+
+  // escape() before injecting any code/user content into innerHTML.
+  const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+  // --- render the body from DATA ---
+  // Item-level path back to Claude: per item, build a SPECIFIC prompt about THAT
+  // item (not the whole page). Surface the prompt text so the user sees what they
+  // are sending (title= shows it on hover; you could also render it inline).
+  const promptFor = (it) =>
+    `Re: "${it.title}" — please <state the change you want for this one item>.`;
+
+  document.getElementById("content").innerHTML = DATA.items.map((it) => `
+    <div class="card item" style="margin-bottom:.75rem">
+      <div>
+        <strong>${esc(it.title)}</strong>
+        <div class="sub">${esc(it.detail)}</div>
+      </div>
+      <button class="tiny copy-item" data-id="${esc(it.id)}"
+              title="${esc(promptFor(it))}">Copy prompt</button>
+    </div>`).join("");
+
+  document.querySelectorAll(".copy-item").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const it = DATA.items.find((x) => x.id === btn.dataset.id);
+      await navigator.clipboard.writeText(promptFor(it));
+      btn.textContent = "Copied ✓";
+      setTimeout(() => (btn.textContent = "Copy prompt"), 1500);
+    });
+  });
+
+  // Give every code block a hover copy button. Copies the rendered text
+  // (innerText), so token <span>s don't leak into the clipboard.
+  document.querySelectorAll("pre").forEach((pre) => {
+    const wrap = document.createElement("div");
+    wrap.className = "code";
+    pre.replaceWith(wrap);
+    wrap.appendChild(pre);
+    const btn = document.createElement("button");
+    btn.className = "tiny copy"; btn.textContent = "Copy";
+    btn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(pre.innerText);
+      btn.textContent = "Copied ✓";
+      setTimeout(() => (btn.textContent = "Copy"), 1500);
+    });
+    wrap.appendChild(btn);
+  });
+
+  // Whole-state export (the honest generic): copy the data, not a fake prompt.
+  document.getElementById("copyJson").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(JSON.stringify(DATA, null, 2));
+    const btn = document.getElementById("copyJson");
+    btn.textContent = "Copied ✓";
+    setTimeout(() => (btn.textContent = "Copy as JSON"), 1500);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+%% Ready-to-use Mermaid snippets for AI/LLM architecture write-ups.
+%% Each block below is one valid diagram. Copy a single block (between the
+%% headers) into a ```mermaid fence in your doc, or paste into https://mermaid.live
+%% Conventions: label every edge, one abstraction level per diagram, show trust
+%% boundaries, style the LLM/agent nodes so the eye finds where the model is.
+
+%% ============================================================
+%% 1. RAG pipeline — offline indexing + online query, with eval point
+%% Use a flowchart: the question is "how does data flow through the system".
+%% ============================================================
+flowchart TD
+    subgraph Offline["Offline · indexing"]
+        D[Source docs] -->|"chunk + clean"| C[Chunks]
+        C -->|"embed"| E[Embeddings]
+        E --> V[(Vector store)]
+    end
+    subgraph Online["Online · query"]
+        Q[User query] -->|"embed"| QE[Query vector]
+        QE -->|"top-k similarity"| V
+        V -->|"retrieved chunks"| R[Reranker]
+        R -->|"top-n, reranked"| P[Prompt assembly]
+        Q --> P
+        P -->|"context + question"| LLM(["Claude · generate"])
+        LLM -->|"answer + citations"| A[Response]
+    end
+    A -.->|"sampled for grading"| EV{{Eval: faithfulness + relevance}}
+    style LLM fill:#d8b4fe,stroke:#7c3aed
+
+%% ============================================================
+%% 2. Agent loop — reason / act / observe until a stop condition
+%% Use a sequence diagram: ordering and back-and-forth ARE the point.
+%% ============================================================
+sequenceDiagram
+    actor User
+    participant Agent as Claude (agent)
+    participant Tools as Tool layer
+    participant Env as Environment / APIs
+
+    User->>Agent: task
+    loop until done or budget hit
+        Agent->>Agent: reason about next step
+        Agent->>Tools: tool_use (name, input)
+        Tools->>Env: execute call
+        Env-->>Tools: raw result
+        Tools-->>Agent: tool_result block
+        Agent->>Agent: incorporate result
+    end
+    Agent-->>User: final answer
+    Note over Agent,Tools: stop conditions: task complete · max turns · token budget · error
+
+%% ============================================================
+%% 3. Multi-agent orchestrator-workers — decompose, fan out, synthesise
+%% Use when subtasks are independent and parallelisable.
+%% ============================================================
+flowchart TD
+    U[User task] --> O(["Orchestrator (Claude)"])
+    O -->|"subtask A"| W1(["Worker (Claude)"])
+    O -->|"subtask B"| W2(["Worker (Claude)"])
+    O -->|"subtask C"| W3(["Worker (Claude)"])
+    W1 -->|"result A"| S(["Synthesiser (Claude)"])
+    W2 -->|"result B"| S
+    W3 -->|"result C"| S
+    S -->|"merged answer"| U
+    subgraph Shared
+        T[Tool / retrieval layer]
+    end
+    W1 -.->|"calls"| T
+    W2 -.->|"calls"| T
+    W3 -.->|"calls"| T
+    style O fill:#fde68a,stroke:#d97706
+    style S fill:#fde68a,stroke:#d97706
+
+%% ============================================================
+%% 4. LLM request flow with an eval gate — validate before it reaches the user
+%% Use a sequence diagram: shows the pass/fail branch and bounded retry.
+%% ============================================================
+sequenceDiagram
+    actor User
+    participant API as App / API
+    participant Cache as Prompt cache
+    participant Claude
+    participant Gate as Output gate (programmatic + judge)
+
+    User->>API: request
+    API->>Cache: check (system + tools prefix)
+    Cache-->>API: cache hit / miss
+    API->>Claude: Messages call (cached prefix + input)
+    Claude-->>API: candidate output
+    API->>Gate: validate (schema, policy, faithfulness)
+    alt passes
+        Gate-->>API: ok
+        API-->>User: response
+    else fails
+        Gate-->>API: fail + reason
+        API->>Claude: retry with critique (bounded)
+        Claude-->>API: revised output
+        API-->>User: response or safe fallback
+    end
+
+%% ============================================================
+%% 5. System context with trust boundaries — the C4 "container" altitude
+%% One level up: what talks to what, and where data crosses a boundary.
+%% ============================================================
+flowchart LR
+    subgraph Public["Public internet"]
+        U[End user]
+    end
+    subgraph VPC["Customer VPC (trust boundary)"]
+        APP[App service]
+        RET[retrieval-svc]
+        VDB[(Vector store)]
+        OBS[Logging / eval store]
+    end
+    subgraph Anthropic["Anthropic (model provider)"]
+        CL([Claude API])
+    end
+    U -->|"HTTPS"| APP
+    APP -->|"query"| RET
+    RET -->|"top-k"| VDB
+    APP -->|"prompt (no PII)"| CL
+    CL -->|"completion"| APP
+    APP -->|"traces, scores"| OBS
+    style CL fill:#d8b4fe,stroke:#7c3aed

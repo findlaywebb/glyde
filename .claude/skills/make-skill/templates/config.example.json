@@ -1,0 +1,31 @@
+{
+  "//": "Optional. Include a config.json ONLY if the skill needs setup or user preferences. Delete this file if it doesn't. Keys below are illustrative — there is no fixed schema; the skill body reads whatever it needs.",
+
+  "setup": {
+    "//": "Prompts shown when the skill is first used and required config is missing. Prefer the AskUserQuestion tool for structured choices over free-text where the options are known.",
+    "prompts": [
+      {
+        "key": "dashboard_url",
+        "question": "What's the base URL of your monitoring dashboard?",
+        "required": true
+      },
+      {
+        "key": "default_environment",
+        "question": "Which environment should this default to?",
+        "choices": ["staging", "production"],
+        "default": "staging"
+      }
+    ]
+  },
+
+  "preferences": {
+    "//": "Defaults the skill reads each run. Override per-invocation in the prompt.",
+    "verbose_output": false,
+    "soak_period_minutes": 30
+  },
+
+  "data": {
+    "//": "If the skill needs memory across runs, write an append-only log or small JSON file under ${CLAUDE_PLUGIN_DATA} and read it back to answer 'what changed since last run?'. Only add this if the skill genuinely needs history.",
+    "log_path": "${CLAUDE_PLUGIN_DATA}/runs.jsonl"
+  }
+}
