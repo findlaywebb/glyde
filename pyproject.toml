@@ -65,6 +65,10 @@ src = [
     "backend/packages/adapters/src",
     "backend/packages/api/src",
 ]
+# prototype/ is a vendored reference artifact (the standalone RSVP reader CLI),
+# not part of the application — exclude it from the app's lint gates. print() is
+# its legitimate CLI interface.
+extend-exclude = ["prototype"]
 
 [tool.ruff.lint]
 select = [

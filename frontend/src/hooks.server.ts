@@ -36,7 +36,6 @@ export const handle: Handle = ({ event, resolve }) => {
 		return fetch(new Request(upstream, event.request));
 	}
 	return resolve(event, {
-		filterSerializedResponseHeaders: (name) =>
-			name === 'content-type' || name === 'content-length'
+		filterSerializedResponseHeaders: (name) => name === 'content-type' || name === 'content-length'
 	});
 };

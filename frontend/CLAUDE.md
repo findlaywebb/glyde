@@ -34,7 +34,7 @@ not a nice-to-have.
   `schema.d.ts` is committed; CI runs `openapi-typescript --check`.
 - **Tokens, not raw palette.** Components speak in semantic tokens (`bg-card`, not
   `bg-zinc-900`); light/dark via `:root`/`.dark` + **`@theme inline`** (omitting `inline`
-  silently breaks dark mode). shadcn-svelte components are *owned source* in
+  silently breaks dark mode). shadcn-svelte components are _owned source_ in
   `$lib/components/ui/` — review them as our code. A repeated arbitrary `[…]` value is a
   missing token.
 - **Dark-mode-first.** The app default is dark: `<html class="dark">` in `app.html` +

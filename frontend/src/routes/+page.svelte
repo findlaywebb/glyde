@@ -8,8 +8,7 @@
 <main class="mx-auto max-w-2xl p-8">
 	<h1 class="text-2xl font-semibold">Glyde</h1>
 	<p class="mt-2 text-muted-foreground">
-		The typed-seam example: this list is loaded from <code>GET /records</code> through the
-		generated client.
+		The typed-seam example: this list is loaded from <code>GET /records</code> through the generated client.
 	</p>
 
 	<ul class="mt-6 space-y-2">
