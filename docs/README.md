@@ -14,6 +14,7 @@ roadmap live in `specs/`, never in source docstrings (an architecture test enfor
 Subfolders:
 
 - `decisions/` — Architecture Decision Records (`NNNN-title.md`).
+- `research/` — background investigations behind design choices (e.g. the reader's reading modes).
 - `runbooks/` — operational playbooks (dependency updates, releases).
 - `schemas/` — the committed `openapi.json` (generated; the frontend type seam's source).
 - `issues/` — one markdown file per out-of-scope issue found while doing something else.
