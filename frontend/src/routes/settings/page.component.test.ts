@@ -37,6 +37,16 @@ describe('/settings', () => {
 		expect(rsvp.checked).toBe(true);
 	});
 
+	it('reflects the stored typeface in the select', () => {
+		localStorage.setItem(
+			PREFS_STORAGE_KEY,
+			JSON.stringify({ ...DEFAULT_PREFERENCES, font: 'opendyslexic' })
+		);
+		const { getByRole } = render(Page);
+		const typeface = getByRole('combobox', { name: /typeface/i }) as HTMLSelectElement;
+		expect(typeface.value).toBe('opendyslexic');
+	});
+
 	it('shows the live preview word with the coral pivot', () => {
 		const { getByLabelText, container } = render(Page);
 		expect(getByLabelText('Live preview')).toBeInTheDocument();
