@@ -68,10 +68,16 @@ def _resolve_source(text: str | None) -> tuple[str, _SourceKind, str | None]:
 def _flatten(digest: Digest) -> str:
     """Flatten a digest's IR to terminal prose (the fallback reader)."""
     parts: list[str] = []
+    previous_was_prose = False
     for segment in digest.segments:
         if isinstance(segment, ProseSegment):
+            if previous_was_prose:  # adjacent runs with no pause (e.g. heading -> body)
+                parts.append("\n")
             parts.append(" ".join(token.text for token in segment.tokens))
-        elif isinstance(segment, Pause):
+            previous_was_prose = True
+            continue
+        previous_was_prose = False
+        if isinstance(segment, Pause):
             if segment.reason == "paragraph":
                 parts.append("\n\n")
             elif segment.reason != "block_ahead":

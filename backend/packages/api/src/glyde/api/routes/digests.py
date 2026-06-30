@@ -43,7 +43,6 @@ from glyde.api.settings import (
 )
 from glyde.api.slug import new_slug
 from glyde.core import Block, Digest, Segment
-from glyde.core.derive import count_tokens
 from glyde.core.ports import (  # noqa: TC001
     DigestStore,
 )
@@ -70,8 +69,12 @@ def _blocks_by_kind(digest: Digest) -> dict[str, int]:
 
 
 def _as_list_item(digest: Digest) -> DigestListItemView:
-    """Project a digest to a library list item with derived counts."""
-    counts = CountsView(words=count_tokens(digest.segments), blocks_by_kind=_blocks_by_kind(digest))
+    """Project a digest to a library list item with derived counts.
+
+    ``words`` reuses the ``token_count`` derived once at ingest (the same value);
+    only ``blocks_by_kind`` is computed here.
+    """
+    counts = CountsView(words=digest.meta.token_count, blocks_by_kind=_blocks_by_kind(digest))
     return DigestListItemView(meta=DigestMetaView.model_validate(digest.meta), counts=counts)
 
 

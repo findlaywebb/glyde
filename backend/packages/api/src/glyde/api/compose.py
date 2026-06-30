@@ -8,7 +8,7 @@ Key types:
 - ``compose_digest`` — parse/segment the input, mint id + slug, stamp time,
   derive the counts, build the ``Digest``, persist it, and return it.
 
-A Phase-2 MCP server is a thin wrapper over this same call.
+An MCP ingest path (no consumer yet) is a thin wrapper over this same call.
 
 What this module does NOT do:
 - No HTTP and no CLI parsing — it adapts a request bundle to the store. The clock,
