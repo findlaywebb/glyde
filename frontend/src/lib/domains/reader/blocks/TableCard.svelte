@@ -21,7 +21,8 @@
 
 	/** Return true when a line is the separator row (all cells are `---` variants). */
 	function isSeparator(line: string): boolean {
-		return parseCells(line).every((c) => /^:?-+:?$/.test(c));
+		const cells = parseCells(line);
+		return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c));
 	}
 
 	interface ParsedTable {
@@ -75,7 +76,7 @@
 				<table class="w-full border-collapse font-ui text-sm">
 					<thead>
 						<tr>
-							{#each parsed.headers as header (header)}
+							{#each parsed.headers as header, hi (hi)}
 								<th
 									class="border-b border-border px-3 py-2 text-left font-semibold text-card-foreground"
 									>{header}</th

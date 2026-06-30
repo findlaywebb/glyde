@@ -102,11 +102,12 @@ describe('CodeCard', () => {
 
 	it('toggles between scroll and wrap mode', async () => {
 		render(CodeCard, { block: block('code'), reshown: false });
-		const toggleBtn = screen.getByRole('button', { name: /wrap|scroll/i });
-		// Initial state: scroll mode, button says "wrap"
+		const toggleBtn = screen.getByRole('button', { name: 'Word wrap' });
+		// Initial state: wrap off, aria-pressed false, visible text "wrap"
 		expect(toggleBtn).toHaveAttribute('aria-pressed', 'false');
 		expect(toggleBtn.textContent?.trim()).toBe('wrap');
 		await fireEvent.click(toggleBtn);
+		// After toggle: wrap on, aria-pressed true, visible text switches to "scroll"
 		expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
 		expect(toggleBtn.textContent?.trim()).toBe('scroll');
 	});
@@ -158,9 +159,9 @@ describe('ImageCard', () => {
 		expect(img).toBeTruthy();
 		await fireEvent.error(img!);
 		await waitFor(() => {
-			expect(screen.queryByRole('img', { name: /a cat/ })).toBeTruthy();
-			// After error, there should be no <img> src element visible
+			// After error, the <img> is replaced by a <figure role="img"> with the alt text
 			expect(document.querySelector('img')).toBeNull();
+			expect(screen.getByRole('img', { name: 'a cat' })).toBeInTheDocument();
 		});
 	});
 
