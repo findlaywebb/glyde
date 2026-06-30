@@ -45,10 +45,14 @@ self.addEventListener('fetch', (event) => {
 function route(event) {
 	const url = new URL(event.request.url);
 
-	// FIRST: anything under /api is a passthrough — except the one cached digest read.
+	// FIRST: anything under /api is a passthrough — except the one cached, same-origin digest read.
 	if (url.pathname === '/api' || url.pathname.startsWith('/api/')) {
-		if (event.request.method === 'GET' && DIGEST_READ.test(url.pathname)) {
-			return staleWhileRevalidate(event);
+		if (
+			event.request.method === 'GET' &&
+			url.origin === self.location.origin &&
+			DIGEST_READ.test(url.pathname)
+		) {
+			return staleWhileRevalidate(event, url);
 		}
 		return undefined;
 	}
@@ -81,13 +85,18 @@ async function cacheFirst(request) {
 }
 
 // The Digest IR: serve the cached copy instantly when present, always revalidate in the
-// background; on a cold cache, await the network.
-async function staleWhileRevalidate(event) {
+// background; on a cold cache, await the network. The cache key is normalised to the
+// pathname (query-insensitive) so a slug has one entry regardless of any query, and a
+// deleted/gone digest (404/410) is evicted rather than served stale forever.
+async function staleWhileRevalidate(event, url) {
+	const key = url.origin + url.pathname;
 	const cache = await caches.open(DIGEST_CACHE);
-	const cached = await cache.match(event.request);
+	const cached = await cache.match(key);
 	const network = fetch(event.request).then((response) => {
 		if (response.ok) {
-			cache.put(event.request, response.clone());
+			cache.put(key, response.clone());
+		} else if (response.status === 404 || response.status === 410) {
+			cache.delete(key);
 		}
 		return response;
 	});
