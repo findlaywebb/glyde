@@ -33,10 +33,12 @@ it has to be the *same* object for every surface — not parallel DTOs that drif
   ordered `list[Segment]`. The three variants carry exactly what a reader needs and nothing it must
   recompute: `ProseSegment` a run of `Token`s with a structural `role`; `Pause` a `reason` plus a
   coarse `duration_scale`; `Block` a `kind` and raw `content` shown as a static card.
-- **The IR carries the *what*, never the *how-long*.** A `Token` has `emphasis` and an optional
-  coarse `hold` hint; a `Pause` has `reason` + `duration_scale`. None of these is milliseconds —
-  the reader maps them to a dwell from `Preferences` and the cadence constants. This closes the
-  IR/reader pacing fork by construction.
+- **The IR carries the *what*, not the per-word *how-long*.** A `Token` has `emphasis` and an
+  optional coarse `hold` hint; a `Pause` has `reason` + `duration_scale`. None of these is a
+  millisecond dwell — the reader maps them to a dwell from `Preferences` and the cadence constants,
+  and the render maths (pivot index, flash-ms, pixel offsets) live in the reader, never the IR. The
+  one time value `DigestMeta` carries, `est_reading_ms`, is a coarse whole-digest estimate derived
+  once at ingest, not per-word render pacing. This closes the IR/reader pacing fork by construction.
 - **Reading settings are per-user `Preferences`, never digest content.** A digest carries at most
   an optional `reading_hint`. The same digest reads differently for different users and the same
   user's preferences apply to every digest.
