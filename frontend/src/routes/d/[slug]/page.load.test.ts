@@ -88,4 +88,9 @@ describe('/d/[slug] load', () => {
 		mockGET.mockResolvedValueOnce({ data: undefined, error: undefined, response: { status: 200 } });
 		await expect(load(makeEvent())).rejects.toMatchObject({ status: 502 });
 	});
+
+	it('throws a 502 when the fetch itself rejects (offline / dead proxy)', async () => {
+		mockGET.mockRejectedValueOnce(new Error('network down'));
+		await expect(load(makeEvent())).rejects.toMatchObject({ status: 502 });
+	});
 });

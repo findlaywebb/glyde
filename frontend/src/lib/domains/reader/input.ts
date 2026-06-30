@@ -29,13 +29,13 @@ export const MIN_WPM = 100;
 export const MAX_WPM = 800;
 
 /** Movement under this (px) on BOTH axes is a tap, not a swipe. Also the axis-lock threshold. */
-export const SWIPE_LOCK_PX = 8;
+const SWIPE_LOCK_PX = 8;
 /** A swipe committed purely by distance once the horizontal travel reaches this (px). */
-export const SWIPE_DISTANCE_PX = 45;
+const SWIPE_DISTANCE_PX = 45;
 /** The minimum horizontal travel (px) a velocity flick still needs. */
-export const SWIPE_FLICK_PX = 40;
+const SWIPE_FLICK_PX = 40;
 /** The flick velocity (px/ms) that commits a short-but-fast horizontal swipe. */
-export const SWIPE_FLICK_VELOCITY = 0.3;
+const SWIPE_FLICK_VELOCITY = 0.3;
 
 /**
  * Clamp a words-per-minute value into the Transport-supported range.
