@@ -61,17 +61,16 @@
 	bind:this={viewport}
 >
 	<div class="flow-content" style:transform="translate(-50%, {-offsetY}px)">
+		<!-- The trailing space is appended to the word text (a runtime expression, so it survives
+		     Svelte's compile-time whitespace trimming) — it separates words and gives the browser a
+		     line-break opportunity between the inline spans. -->
 		{#each words as word, i (i)}<span
 				class="fw"
 				class:read={i < wordIndex}
 				class:cur={i === wordIndex}
-				class:underline={i === wordIndex}
-				class:decoration-pivot={i === wordIndex}
-				class:decoration-2={i === wordIndex}
-				class:underline-offset-4={i === wordIndex}
 				data-flow-state={i < wordIndex ? 'read' : i === wordIndex ? 'cur' : 'ahead'}
-				bind:this={spans[i]}>{word.text}</span
-			><span class="sp" aria-hidden="true"> </span>{/each}
+				bind:this={spans[i]}>{word.text + ' '}</span
+			>{/each}
 	</div>
 </div>
 
@@ -120,5 +119,14 @@
 
 	.flow[data-mode='fading'] .fw.read {
 		opacity: 0;
+	}
+
+	/* The current word's marker: the pivot-coloured underline (no bold — bold reflows the line).
+	   Kept in CSS, like the opacity rules above, rather than as repeated class directives. */
+	.fw.cur {
+		text-decoration-line: underline;
+		text-decoration-color: var(--color-pivot);
+		text-decoration-thickness: 0.08em;
+		text-underline-offset: 0.18em;
 	}
 </style>

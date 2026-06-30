@@ -85,11 +85,19 @@ describe('Flow guided sweep', () => {
 		expect(container.querySelector('[data-mode="guided"]')).not.toBeNull();
 
 		const cur = at(spans, 2);
+		// The current word carries the `cur` marker class (its underline is styled in CSS).
 		expect(cur.className).toContain('cur');
-		// The current word is marked by the pivot-coloured underline (no bold — bold reflows).
-		expect(cur.className).toContain('underline');
-		expect(cur.className).toContain('decoration-pivot');
 		expect(cur.getAttribute('data-flow-state')).toBe('cur');
+	});
+
+	it('separates words with real whitespace so the line can wrap', () => {
+		const { container } = mountFlow('guided', 0);
+		// Each word keeps a trailing space (a runtime expression survives compile-time trimming),
+		// so words are visually separated and the inline spans have line-break opportunities.
+		expect(at(fwSpans(container), 0).textContent).toBe('the ');
+		expect(must(container.querySelector('.flow-content')).textContent).toContain(
+			'the quick brown fox jumps'
+		);
 	});
 
 	it('marks already-read words and leaves the road ahead un-read', () => {
