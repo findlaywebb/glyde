@@ -12,7 +12,8 @@
 
 	let imgFailed = $state(false);
 
-	const altText = $derived(block.alt ?? block.content);
+	/** Accessible alt text: prefer the authored `block.alt`; never fall back to a raw URL. */
+	const altText = $derived(block.alt ?? '');
 </script>
 
 <article
@@ -33,9 +34,13 @@
 	<div class="p-4">
 		{#if imgFailed || !block.content}
 			<!-- Fallback: show alt text when the image can't load -->
-			<p class="font-ui text-sm italic text-muted-foreground" role="img" aria-label={altText}>
+			<figure
+				class="font-ui text-sm italic text-muted-foreground"
+				role="img"
+				aria-label={altText || 'Image unavailable'}
+			>
 				{altText || '(no image)'}
-			</p>
+			</figure>
 		{:else}
 			<img
 				src={block.content}

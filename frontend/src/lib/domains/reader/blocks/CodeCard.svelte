@@ -36,6 +36,7 @@
 			<button
 				type="button"
 				class="min-h-11 min-w-11 rounded px-2 py-1 font-ui text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+				aria-label="Word wrap"
 				aria-pressed={wrap}
 				onclick={() => {
 					wrap = !wrap;
