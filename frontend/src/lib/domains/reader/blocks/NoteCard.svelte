@@ -8,12 +8,16 @@
 	 * change). The expand affordance is keyboard-accessible: a real `<button>` with `aria-expanded`,
 	 * Enter/Space activates natively, visible focus ring.
 	 *
-	 * Security: `{@html}` renders the `marked` output. Content is author-owned markdown (not
-	 * user-generated), so XSS risk is the same as rendering the markdown file itself.
+	 * Security: `marked` v18 ships no sanitizer, so its output is run through DOMPurify before
+	 * `{@html}`. Digests are agent/CLI-authored and the reader is multi-user-hosted, so raw HTML
+	 * in the content (`<script>`, `onerror=`, `javascript:` hrefs) is untrusted and must be
+	 * stripped. The reader route is CSR-only (`ssr=false`), so DOMPurify's browser-DOM dependency
+	 * is satisfied; the jsdom component tests also supply a DOM.
 	 */
 	import { ChevronDown, ChevronUp } from '@lucide/svelte';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { BlockCardProps } from '$lib/domains/reader/types';
+	import DOMPurify from 'dompurify';
 	import { marked } from 'marked';
 
 	let { block, reshown }: BlockCardProps = $props();
@@ -21,17 +25,17 @@
 	let expanded = $state(false);
 
 	/**
-	 * Parsed markdown HTML. Synchronous — no async extensions are used. The `{ async: false }`
-	 * option narrows the return type to `string` in TypeScript.
+	 * Sanitized markdown HTML. `marked.parse` is synchronous (no async extensions; `{ async: false }`
+	 * narrows the return type to `string`), and DOMPurify strips dangerous markup before render.
 	 */
-	const parsedContent = $derived(marked.parse(block.content, { async: false }));
+	const parsedContent = $derived(DOMPurify.sanitize(marked.parse(block.content, { async: false })));
 
 	function toggleExpand(): void {
 		expanded = !expanded;
 	}
 </script>
 
-<!-- eslint-disable svelte/no-at-html-tags -- marked output renders author-controlled content from trusted markdown files; no external user input reaches this path -->
+<!-- eslint-disable svelte/no-at-html-tags -- content is sanitized with DOMPurify before render (see parsedContent) -->
 <article
 	aria-label="Note block"
 	class="w-full rounded-lg border border-border bg-card text-card-foreground transition-all duration-150 ease-out hover:shadow-md motion-safe:hover:scale-[1.01] {reshown

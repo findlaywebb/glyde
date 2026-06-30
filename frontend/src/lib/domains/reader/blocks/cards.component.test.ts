@@ -321,6 +321,29 @@ describe('NoteCard', () => {
 		expect(screen.getByText('item one')).toBeInTheDocument();
 	});
 
+	it('sanitizes dangerous HTML in the markdown content (XSS guard)', () => {
+		// marked v18 ships no sanitizer; DOMPurify must strip script/event-handler/js-href vectors.
+		const b = block('note', {
+			content:
+				'Hello <script>alert(1)</script> <img src=x onerror=alert(1)> and [x](javascript:alert(1))'
+		});
+		const { container } = render(NoteCard, { block: b, reshown: false });
+		// No script element survives.
+		expect(container.querySelector('script')).toBeNull();
+		// No inline event-handler attribute survives on any element.
+		const withOnError = Array.from(container.querySelectorAll('*')).filter((el) =>
+			el.hasAttribute('onerror')
+		);
+		expect(withOnError).toHaveLength(0);
+		// No javascript: href survives on any anchor.
+		const jsHrefs = Array.from(container.querySelectorAll('a')).filter((a) =>
+			(a.getAttribute('href') ?? '').toLowerCase().startsWith('javascript:')
+		);
+		expect(jsHrefs).toHaveLength(0);
+		// The benign text is still rendered.
+		expect(container.textContent).toContain('Hello');
+	});
+
 	it('shows the reshown affordance when reshown=true', () => {
 		render(NoteCard, { block: block('note'), reshown: true });
 		expect(screen.getByText('reshown')).toBeInTheDocument();
