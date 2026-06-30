@@ -1,17 +1,26 @@
-"""Run the store contract against the in-memory fake — keeping the fake honest."""
+"""Run the store contracts against the in-memory fakes — keeping the fakes honest."""
 
 from typing import override
 
-from support.memory_store import InMemoryRecordStore
-from support.store_contract import RecordStoreContract
+from support.memory_store import InMemoryDigestStore, InMemoryRecordStore
+from support.store_contract import DigestStoreContract, RecordStoreContract
 
-from glyde.core import RecordStore
+from glyde.core import DigestStore, RecordStore
 
 
-class TestInMemoryStore(RecordStoreContract):
-    """The in-memory fake must satisfy the same contract as the real store."""
+class TestInMemoryDigestStore(DigestStoreContract):
+    """The in-memory digest fake must satisfy the same contract as the real store."""
+
+    @override
+    def make_store(self) -> DigestStore:
+        """Return a fresh in-memory digest store."""
+        return InMemoryDigestStore()
+
+
+class TestInMemoryRecordStore(RecordStoreContract):
+    """The in-memory record fake must satisfy the same contract as the real store."""
 
     @override
     def make_store(self) -> RecordStore:
-        """Return a fresh in-memory store."""
+        """Return a fresh in-memory record store."""
         return InMemoryRecordStore()
