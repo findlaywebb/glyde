@@ -125,6 +125,31 @@ describe('createPrefsStore', () => {
 		expect(store.current.mode).toBe('fading');
 	});
 
+	it('does not clobber a value changed while the reload GET is in flight', async () => {
+		// The GET is held open until `releaseGet` fires, so a user `set()` can land mid-flight.
+		let releaseGet = (): void => {};
+		const gate = new Promise<void>((resolve) => {
+			releaseGet = resolve;
+		});
+		const fetchImpl = (async (input: RequestInfo | URL): Promise<Response> => {
+			const request = input as Request;
+			if (request.method === 'GET') {
+				await gate;
+				return jsonResponse({ ...DEFAULT_PREFERENCES, mode: 'fading' }, 200);
+			}
+			return jsonResponse(await request.json(), 200);
+		}) as typeof fetch;
+		const store = createPrefsStore({ fetch: fetchImpl });
+
+		const reloadDone = store.reload(); // GET in flight, gated open
+		await store.set({ mode: 'rsvp' }); // user changes during the GET (newer write)
+		releaseGet(); // now let the stale GET ('fading') resolve
+		await reloadDone;
+
+		// The newer local value survives; the stale server read does not overwrite it.
+		expect(store.current.mode).toBe('rsvp');
+	});
+
 	it('keeps the optimistic value when the PUT fails (no rollback)', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		const { fetchImpl } = makeFetch({ failPut: true });

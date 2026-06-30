@@ -23,7 +23,13 @@
  * The `fetch` is INJECTED (defaults to the platform `fetch`) so the persist round-trip is
  * unit-testable with no server. What this file does NOT do: it applies no theme/font to the DOM
  * (that is the Settings page / R-STAGE), mints no ids, and registers no listeners.
+ *
+ * Reactivity contract for callers: `reload()` reads no `$state` in a tracked way (it lifts
+ * `owner_id` out with `untrack`), so calling it inside a consumer's `$effect` does NOT subscribe
+ * that effect to `current` — a mount-time reconcile runs once, never in a loop. And a `reload()`
+ * whose GET resolves after a later `set()` does NOT overwrite the newer local value.
  */
+import { untrack } from 'svelte';
 import { api } from '$lib/api/client';
 import type { components } from '$lib/api/schema';
 
@@ -119,6 +125,9 @@ export function createPrefsStore(args: CreatePrefsStoreArgs = {}): PrefsStore {
 
 	// First paint: load/SSR seed wins, else the synchronous mirror, else the first-run defaults.
 	let prefs = $state<PreferencesView>(args.initial ?? readMirror() ?? DEFAULT_PREFERENCES);
+	// Monotonic write counter: a `reload()` whose GET resolves after a newer `set()` is discarded
+	// rather than clobbering the user's optimistic change. Plain bookkeeping, not reactive state.
+	let writeSeq = 0;
 
 	return {
 		get current(): PreferencesView {
@@ -126,6 +135,7 @@ export function createPrefsStore(args: CreatePrefsStoreArgs = {}): PrefsStore {
 		},
 
 		async set(patch: Partial<PreferencesView>): Promise<void> {
+			writeSeq += 1;
 			const next = { ...prefs, ...patch };
 			prefs = next;
 			writeMirror(next); // synchronous, before the network — instant and offline-safe
@@ -140,13 +150,19 @@ export function createPrefsStore(args: CreatePrefsStoreArgs = {}): PrefsStore {
 		},
 
 		async reload(): Promise<void> {
+			const seqAtStart = writeSeq;
+			// Lift the only `$state` read out of the tracked window: a consumer that calls
+			// `reload()` from an `$effect` must not subscribe that effect to `current` (else a
+			// successful reload's `prefs = data` would re-fire it — an unbounded GET loop).
+			const ownerId = untrack(() => prefs.owner_id);
 			try {
 				const { data, error } = await api.GET('/preferences', {
-					params: { query: { owner_id: prefs.owner_id } },
+					params: { query: { owner_id: ownerId } },
 					fetch: fetchImpl,
 					baseUrl
 				});
 				if (error || data === undefined) return; // offline/rejected: keep the mirror value
+				if (writeSeq !== seqAtStart) return; // a set() landed during the GET — keep the newer value
 				prefs = data;
 				writeMirror(data); // reconcile the mirror to the server (source of truth)
 			} catch {
