@@ -54,7 +54,7 @@ class ProvenanceView(ApiModel):
 class ReadingHintView(ApiModel):
     """The wire projection of an optional per-digest reading-mode hint."""
 
-    suggested_mode: Literal["rsvp", "guided", "fading"] = Field(
+    suggested_mode: Literal["rsvp", "guided", "fading", "focus"] = Field(
         description="The reading mode this digest suggests."
     )
 

@@ -365,7 +365,7 @@ export interface components {
              * @default guided
              * @enum {string}
              */
-            mode: "rsvp" | "guided" | "fading";
+            mode: "rsvp" | "guided" | "fading" | "focus";
             /**
              * Owner Id
              * @description The owning user (single-user in v1).
@@ -466,7 +466,7 @@ export interface components {
              * @description The reading mode this digest suggests.
              * @enum {string}
              */
-            suggested_mode: "rsvp" | "guided" | "fading";
+            suggested_mode: "rsvp" | "guided" | "fading" | "focus";
         };
         /**
          * TokenView

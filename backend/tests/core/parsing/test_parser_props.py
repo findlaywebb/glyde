@@ -69,3 +69,16 @@ def test_plain_words_round_trip_to_one_body_run(words: list[str]) -> None:
     assert isinstance(only, ProseSegment)
     assert only.role == "body"
     assert [token.text for token in only.tokens] == words
+
+
+@given(
+    st.text(alphabet=string.ascii_letters, min_size=1, max_size=10),
+    st.sampled_from(list(",;:.!?")),
+)
+def test_trailing_terminator_retained_in_last_token(word: str, terminator: str) -> None:
+    """A word followed by a trailing terminator retains it in the last token's text."""
+    segments = parse_glyde_markdown(word + terminator)
+    prose_segments = [s for s in segments if isinstance(s, ProseSegment)]
+    assert prose_segments, "at least one prose segment expected"
+    last_prose = prose_segments[-1]
+    assert last_prose.tokens[-1].text == word + terminator

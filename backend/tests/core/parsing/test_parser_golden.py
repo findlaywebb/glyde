@@ -31,20 +31,20 @@ _VECTORS: list[tuple[str, str, list[tuple[object, ...]]]] = [
         "## Ship it\nWe ==shipped== it.",
         [
             ("prose", "heading", [("Ship", "none"), ("it", "none")]),
-            ("prose", "body", [("We", "none"), ("shipped", "strong"), ("it", "none")]),
+            ("prose", "body", [("We", "none"), ("shipped", "strong"), ("it.", "none")]),
         ],
     ),
     (
         "clause_sentence_paragraph",
         "Yes, it works. New idea.\n\nNext.",
         [
-            ("prose", "body", [("Yes", "none")]),
+            ("prose", "body", [("Yes,", "none")]),
             ("pause", "clause"),
-            ("prose", "body", [("it", "none"), ("works", "none")]),
+            ("prose", "body", [("it", "none"), ("works.", "none")]),
             ("pause", "sentence"),
-            ("prose", "body", [("New", "none"), ("idea", "none")]),
+            ("prose", "body", [("New", "none"), ("idea.", "none")]),
             ("pause", "paragraph"),
-            ("prose", "body", [("Next", "none")]),
+            ("prose", "body", [("Next.", "none")]),
         ],
     ),
     (
@@ -71,9 +71,9 @@ _VECTORS: list[tuple[str, str, list[tuple[object, ...]]]] = [
         "code_fence_with_lead",
         "Run this.\n\n```py\nx = 1\n```",
         [
-            ("prose", "body", [("Run", "none"), ("this", "none")]),
+            ("prose", "body", [("Run", "none"), ("this.", "none")]),
             ("pause", "block_ahead"),
-            ("block", "code", "x = 1", "py", "Run this", None),
+            ("block", "code", "x = 1", "py", "Run this.", None),
         ],
     ),
     (
@@ -88,9 +88,9 @@ _VECTORS: list[tuple[str, str, list[tuple[object, ...]]]] = [
         "image_with_lead",
         "See below.\n\n![a cat](cat.png)",
         [
-            ("prose", "body", [("See", "none"), ("below", "none")]),
+            ("prose", "body", [("See", "none"), ("below.", "none")]),
             ("pause", "block_ahead"),
-            ("block", "image", "cat.png", None, "See below", "a cat"),
+            ("block", "image", "cat.png", None, "See below.", "a cat"),
         ],
     ),
     (
@@ -145,7 +145,7 @@ _VECTORS: list[tuple[str, str, list[tuple[object, ...]]]] = [
             (
                 "prose",
                 "body",
-                [("Pi", "none"), ("is", "none"), ("3.14", "none"), ("here", "none")],
+                [("Pi", "none"), ("is", "none"), ("3.14", "none"), ("here.", "none")],
             )
         ],
     ),
@@ -156,6 +156,30 @@ _VECTORS: list[tuple[str, str, list[tuple[object, ...]]]] = [
     ),
     ("empty_input", "", []),
     ("lone_terminator_yields_nothing", ".", []),
+    # keep-punctuation edge cases
+    (
+        "hello_comma_world_dot",
+        "Hello, world.",
+        [
+            ("prose", "body", [("Hello,", "none")]),
+            ("pause", "clause"),
+            ("prose", "body", [("world.", "none")]),
+        ],
+    ),
+    (
+        "emphasis_span_followed_by_sentence_terminator",
+        "==done==.",
+        [
+            ("prose", "body", [("done.", "strong")]),
+        ],
+    ),
+    (
+        "emphasis_span_followed_by_clause_terminator",
+        "==done==,",
+        [
+            ("prose", "body", [("done,", "strong")]),
+        ],
+    ),
 ]
 
 

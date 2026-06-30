@@ -25,7 +25,7 @@ class PreferencesView(ApiModel):
     """The wire projection of a user's reading preferences (every field defaulted)."""
 
     owner_id: str = Field(default="local", description="The owning user (single-user in v1).")
-    mode: Literal["rsvp", "guided", "fading"] = Field(
+    mode: Literal["rsvp", "guided", "fading", "focus"] = Field(
         default="guided", description="The reading mode; default guided, last-used persisted."
     )
     wpm: int = Field(default=300, description="Reading speed in words per minute.")

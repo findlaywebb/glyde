@@ -41,7 +41,7 @@ class ReadingHint(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    suggested_mode: Literal["rsvp", "guided", "fading"]
+    suggested_mode: Literal["rsvp", "guided", "fading", "focus"]
 
 
 class DigestMeta(BaseModel):

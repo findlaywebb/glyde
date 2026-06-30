@@ -487,7 +487,8 @@
             "enum": [
               "rsvp",
               "guided",
-              "fading"
+              "fading",
+              "focus"
             ],
             "title": "Mode",
             "type": "string"
@@ -641,7 +642,8 @@
             "enum": [
               "rsvp",
               "guided",
-              "fading"
+              "fading",
+              "focus"
             ],
             "title": "Suggested Mode",
             "type": "string"
