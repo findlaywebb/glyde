@@ -5,29 +5,34 @@
   sole interactive element (aria-label + keyboard navigation); the visual track and notches are
   decorative (aria-hidden). Time is rendered in tabular-nums. No global event listeners.
 
-  The thumb shows `wordIndex` (the engine's live position) EXCEPT during an active drag, when the
-  user owns it: `dragValue` holds the in-flight position so an engine word-advance mid-drag does
-  not snap the thumb back. `dragValue` is genuine UI state; `displayValue` is a pure `$derived`.
-  When `wordCount` is 0 (empty digest) the scrubber is disabled, so no out-of-range `onScrub`
-  fires.
+  The fill bar AND the (transparent) range thumb both show `wordIndex` (the engine's live
+  position) EXCEPT during an active drag, when the user owns the position: `dragValue` holds the
+  in-flight position so an engine word-advance mid-drag neither snaps the thumb back nor jumps the
+  visible fill. `dragValue` is genuine UI state; `displayValue` is a pure `$derived` and drives
+  BOTH the fill width and the input value, so they stay consistent. When `wordCount` is 0 (empty
+  digest) the scrubber is disabled, so no out-of-range `onScrub` fires.
+
+  The time-remaining string is plain text — NOT a live region. R-STAGE owns the single
+  coordinated `aria-live` announcer; a per-second countdown here would spam the screen reader.
 -->
 <script lang="ts">
 	import type { ProgressProps } from './types';
 
 	let { wordIndex, wordCount, remainingMs, blockNotches, onScrub }: ProgressProps = $props();
 
-	// The user's in-flight drag position, or null when the engine owns the thumb. While non-null,
-	// `displayValue` ignores `wordIndex`, so the thumb does not flicker as the engine advances.
+	// The user's in-flight drag position, or null when the engine owns the position. While
+	// non-null, `displayValue` ignores `wordIndex`, so neither the thumb nor the fill flickers as
+	// the engine advances.
 	let dragValue = $state<number | null>(null);
 
-	/** Thumb position: the live drag value while dragging, else the engine's `wordIndex`. */
+	/** Position: the live drag value while dragging, else the engine's `wordIndex`. */
 	const displayValue = $derived(dragValue ?? wordIndex);
 
 	/** The highest valid 0-based scrub target (0 when the digest has no words). */
 	const maxIndex = $derived(Math.max(wordCount - 1, 0));
 
-	/** Filled percentage of the scrubber bar (0–100). */
-	const pct = $derived(wordCount > 0 ? (wordIndex / wordCount) * 100 : 0);
+	/** Filled percentage of the scrubber bar (0–100); tracks the drag, then the engine. */
+	const pct = $derived(wordCount > 0 ? (displayValue / wordCount) * 100 : 0);
 
 	/** Human-readable time remaining: "~2m 14s left", "~45s left", "~0s left". */
 	const timeLeft = $derived(formatTime(remainingMs));
@@ -49,9 +54,9 @@
 </script>
 
 <div class="w-full font-ui">
-	<!-- Time remaining — polite live region so screen readers announce updates. -->
+	<!-- Time remaining — plain text; R-STAGE owns the single coordinated aria-live announcer. -->
 	<div class="mb-1 flex items-baseline justify-between">
-		<span class="text-xs tabular-nums text-muted-foreground" aria-live="polite">{timeLeft}</span>
+		<span class="text-xs tabular-nums text-muted-foreground">{timeLeft}</span>
 		<span class="text-xs tabular-nums text-muted-foreground/60">{wordIndex} / {wordCount}</span>
 	</div>
 
@@ -67,7 +72,7 @@
 			aria-hidden="true"
 		>
 			<!-- Fill -->
-			<div class="h-full rounded-full bg-primary" style="width: {pct}%"></div>
+			<div class="h-full rounded-full bg-primary" style="width: {pct}%" data-testid="fill"></div>
 
 			<!-- Block notches: one tick per upcoming block position. -->
 			{#each blockNotches as notch (notch)}

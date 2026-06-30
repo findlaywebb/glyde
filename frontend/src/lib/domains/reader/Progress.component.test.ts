@@ -80,6 +80,22 @@ describe('Progress', () => {
 		expect(scrubbed).toBe(42);
 	});
 
+	it('drives the fill from wordIndex before any drag', () => {
+		const { container } = render(Progress, makeProps({ wordIndex: 30, wordCount: 100 }));
+		const fill = container.querySelector<HTMLElement>('[data-testid="fill"]');
+		expect(fill?.style.width).toBe('30%');
+	});
+
+	it('tracks the fill to the in-flight drag value, not wordIndex, while dragging', async () => {
+		const { container } = render(Progress, makeProps({ wordIndex: 30, wordCount: 100 }));
+		const slider = screen.getByRole('slider', { name: 'Reading position' });
+		const fill = container.querySelector<HTMLElement>('[data-testid="fill"]');
+		// A drag fires `input` (not `change`); the visible fill must follow the drag (70%), not
+		// stay pinned at the engine's wordIndex (30%) — otherwise the bar gives no drag feedback.
+		await fireEvent.input(slider, { target: { value: '70' } });
+		expect(fill?.style.width).toBe('70%');
+	});
+
 	it('caps the scrubber max at the last valid 0-based word index', () => {
 		render(Progress, makeProps({ wordCount: 100 }));
 		const slider = screen.getByRole('slider', { name: 'Reading position' }) as HTMLInputElement;
