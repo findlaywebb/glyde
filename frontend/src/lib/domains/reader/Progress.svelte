@@ -75,7 +75,7 @@
 			<div class="h-full rounded-full bg-primary" style="width: {pct}%" data-testid="fill"></div>
 
 			<!-- Block notches: one tick per upcoming block position. -->
-			{#each blockNotches as notch (notch)}
+			{#each blockNotches as notch, i (i)}
 				<div
 					class="absolute top-0 h-full w-0.5 -translate-x-1/2 bg-cue"
 					style="left: {wordCount > 0 ? (notch / wordCount) * 100 : 0}%"

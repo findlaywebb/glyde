@@ -2,9 +2,11 @@
 
 Key callables:
 - ``connect`` — the ONLY way any code (store, migration runner, tests) opens
-  this adapter's database. A single connect path is what makes the pragma
-  guarantees hold everywhere; ``PRAGMA foreign_keys`` in particular is
-  per-connection and never persisted, so a connection opened any other way
+  this adapter's database. Creates the parent directory (``parents=True,
+  exist_ok=True``) before opening, so first-run paths such as platformdirs
+  app-data dirs are created automatically. A single connect path is what makes
+  the pragma guarantees hold everywhere; ``PRAGMA foreign_keys`` in particular
+  is per-connection and never persisted, so a connection opened any other way
   silently loses foreign-key enforcement.
 
 What this module does NOT do:
@@ -42,7 +44,8 @@ if TYPE_CHECKING:
 def connect(db_path: Path) -> sqlite3.Connection:
     """Open the adapter's database with pinned pragmas and row factory.
 
-    Creates the database file if it does not exist (SQLite semantics). The
+    Creates the database file's parent directory if it does not exist, then
+    creates the database file if it does not exist (SQLite semantics). The
     returned connection is in autocommit mode; see the module invariants for
     the transaction-control consequences.
 
@@ -55,6 +58,7 @@ def connect(db_path: Path) -> sqlite3.Connection:
         ``sqlite3.Row`` as the row factory, and ``check_same_thread=False``
         (sequential cross-thread use under connection-per-request).
     """
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, autocommit=True, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
