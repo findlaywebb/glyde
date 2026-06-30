@@ -7,6 +7,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import Transport from './Transport.svelte';
+import type { TransportProps } from './types';
 
 // jsdom does not implement matchMedia — stub a non-matching query so components that check
 // display-mode or reduced-motion don't throw.
@@ -27,7 +28,7 @@ beforeAll(() => {
 });
 
 /** Build a minimal TransportProps fixture. */
-function makeProps(overrides: Record<string, unknown> = {}) {
+function makeProps(overrides: Partial<TransportProps> = {}) {
 	return {
 		isPlaying: false,
 		wpm: 300,
@@ -120,5 +121,25 @@ describe('Transport', () => {
 	it('displays the current wpm value', () => {
 		render(Transport, makeProps({ wpm: 400 }));
 		expect(screen.getByText('400 wpm')).toBeInTheDocument();
+	});
+
+	it('clamps an out-of-range wpm to the rail so the label and thumb agree', () => {
+		// Below the rail minimum: both the label and the slider thumb show the clamped value,
+		// never a label that disagrees with a pinned thumb.
+		render(Transport, makeProps({ wpm: 50 }));
+		expect(screen.getByText('100 wpm')).toBeInTheDocument();
+		const slider = screen.getByRole('slider', {
+			name: 'Reading speed in words per minute'
+		}) as HTMLInputElement;
+		expect(slider.value).toBe('100');
+	});
+
+	it('clamps a wpm above the rail maximum', () => {
+		render(Transport, makeProps({ wpm: 1200 }));
+		expect(screen.getByText('800 wpm')).toBeInTheDocument();
+		const slider = screen.getByRole('slider', {
+			name: 'Reading speed in words per minute'
+		}) as HTMLInputElement;
+		expect(slider.value).toBe('800');
 	});
 });

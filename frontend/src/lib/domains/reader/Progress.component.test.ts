@@ -7,6 +7,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import Progress from './Progress.svelte';
+import type { ProgressProps } from './types';
 
 beforeAll(() => {
 	if (!window.matchMedia) {
@@ -25,7 +26,7 @@ beforeAll(() => {
 });
 
 /** Build a minimal ProgressProps fixture. */
-function makeProps(overrides: Record<string, unknown> = {}) {
+function makeProps(overrides: Partial<ProgressProps> = {}) {
 	return {
 		wordIndex: 30,
 		wordCount: 100,
@@ -77,6 +78,22 @@ describe('Progress', () => {
 		const slider = screen.getByRole('slider', { name: 'Reading position' });
 		await fireEvent.change(slider, { target: { value: '42' } });
 		expect(scrubbed).toBe(42);
+	});
+
+	it('caps the scrubber max at the last valid 0-based word index', () => {
+		render(Progress, makeProps({ wordCount: 100 }));
+		const slider = screen.getByRole('slider', { name: 'Reading position' }) as HTMLInputElement;
+		// 100 words → valid ordinals 0..99, so max is 99 (never 100, which would be out of bounds).
+		expect(slider.max).toBe('99');
+	});
+
+	it('disables the scrubber on an empty digest so no out-of-range scrub can fire', () => {
+		// With no words, the browser delivers no interaction events to a disabled control, so
+		// onScrub can never fire with an out-of-range index (max collapses to 0).
+		render(Progress, makeProps({ wordIndex: 0, wordCount: 0, blockNotches: [] }));
+		const slider = screen.getByRole('slider', { name: 'Reading position' }) as HTMLInputElement;
+		expect(slider.disabled).toBe(true);
+		expect(slider.max).toBe('0');
 	});
 
 	it('renders word count display', () => {
