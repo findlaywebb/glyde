@@ -27,13 +27,22 @@ import type {
 	TokenView
 } from './types';
 
-/** The real rAF clock; falls back to `setTimeout`/`Date.now` when no rAF exists (node default). */
+/** A single monotonic-preferred time source, shared by the clock's `now` and its tick. */
+function nowMs(): number {
+	return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+/**
+ * The real rAF clock; falls back to `setTimeout` when no rAF exists (node default). Both `now()`
+ * and the scheduled tick read the SAME time source (`nowMs`), so the dwell comparison never mixes
+ * a monotonic clock against epoch ms — a mismatch would flash the whole digest through on tick 1.
+ */
 function defaultClock(): ReaderClock {
 	return {
-		now: () => (typeof performance !== 'undefined' ? performance.now() : Date.now()),
+		now: nowMs,
 		schedule: (tick) => {
 			if (typeof requestAnimationFrame === 'undefined') {
-				const id = setTimeout(() => tick(Date.now()), 16);
+				const id = setTimeout(() => tick(nowMs()), 16);
 				return () => clearTimeout(id);
 			}
 			const id = requestAnimationFrame(tick);
@@ -175,7 +184,7 @@ export function createReaderEngine(args: CreateReaderEngineArgs): ReaderEngine {
 	const pivotIndex = $derived(token ? cadence.pivotIndex(token.text.length) : 0);
 	const atEnd = $derived(frameIndex >= frames.length);
 	const remainingMs = $derived(
-		Math.max(0, Math.round(((wordCount - wordIndex) * 60000) / prefs.wpm))
+		Math.max(0, Math.round((wordCount - wordIndex) * cadence.baseMs(prefs.wpm)))
 	);
 
 	const dwellMs = $derived.by((): number => {
@@ -208,7 +217,7 @@ export function createReaderEngine(args: CreateReaderEngineArgs): ReaderEngine {
 
 	function play(): void {
 		hasStarted = true;
-		if (reshownBlockIndex !== null) reshownBlockIndex = null;
+		reshownBlockIndex = null;
 		if (frameIndex >= frames.length) {
 			playing = false;
 			return;
@@ -255,14 +264,17 @@ export function createReaderEngine(args: CreateReaderEngineArgs): ReaderEngine {
 
 	function replayWord(): void {
 		hasStarted = true;
-		reshownBlockIndex = null;
 		const j = prevWordFrame(frameIndex);
-		goTo(j ?? 0);
+		goTo(j ?? 0); // goTo clears any re-show overlay
 		if (playing && !frameIsBlock(frameIndex)) wordStartedAt = clock.now();
 	}
 
 	function reshowLastBlock(): void {
 		if (lastBlockIndex === null) return;
+		// If we are already auto-paused ON this very block it is already shown; opening a re-show
+		// overlay over it would trap toggle() into re-pausing instead of advancing past it.
+		const f = frames[frameIndex];
+		if (reshownBlockIndex === null && f && f.type === 'block' && f.bIdx === lastBlockIndex) return;
 		reshownBlockIndex = lastBlockIndex;
 		playing = false;
 		stopLoop();
@@ -280,7 +292,7 @@ export function createReaderEngine(args: CreateReaderEngineArgs): ReaderEngine {
 	}
 
 	function setMode(mode: PreferencesView['mode']): void {
-		prefs.mode = mode;
+		prefs = { ...prefs, mode }; // replace (like setPrefs); never mutate the caller's prefs object
 	}
 
 	function setPrefs(next: PreferencesView): void {

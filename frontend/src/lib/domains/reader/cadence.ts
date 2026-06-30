@@ -21,8 +21,9 @@ import type { BlockView, PauseView, SegmentView, TokenView } from './types';
 
 // --- Pacing math ---
 
-/** Why a pause occurs; mirrors the wire `PauseView['reason']`. */
-export type PauseReason = 'clause' | 'sentence' | 'paragraph' | 'block_ahead';
+/** Why a pause occurs — the wire `PauseView['reason']`, aliased (not hand-duplicated) so a new
+ *  backend reason makes `PAUSE_WEIGHTS` below fail exhaustiveness rather than silently gap. */
+export type PauseReason = PauseView['reason'];
 
 /** A word longer than this many characters earns the long-word multiplier. */
 export const LONG_WORD_THRESHOLD = 8;
@@ -51,9 +52,12 @@ export const RAMP_START_FRACTION = 0.45;
 /** A reduced-motion reader's dwell never drops below this floor (no strobing). */
 export const REDUCED_MOTION_MIN_DWELL_MS = 600;
 
-/** Base milliseconds per word at a given speed: `60000 / wpm`. */
+/**
+ * Base milliseconds per word at a given speed: `60000 / wpm`. The wpm is floored at 1 so a stray
+ * non-positive preference can never freeze the reader (`Infinity` dwell) or yield a negative dwell.
+ */
 export function baseMs(wpm: number): number {
-	return 60000 / wpm;
+	return 60000 / Math.max(wpm, 1);
 }
 
 /** The long-word multiplier: `1` up to the threshold, then `1 + 0.03·(len − 8)` capped at 1.4. */

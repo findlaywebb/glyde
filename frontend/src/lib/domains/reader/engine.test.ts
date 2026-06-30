@@ -168,6 +168,20 @@ describe('cadence', () => {
 		expect(cadence.baseMs(600)).toBe(100);
 	});
 
+	it('guards a non-positive wpm so the reader never freezes or flashes through', () => {
+		expect(cadence.baseMs(0)).toBe(60000); // wpm floored at 1
+		expect(cadence.baseMs(-100)).toBe(60000);
+		const ms = cadence.dwellMs({
+			wpm: 0,
+			wordLength: 4,
+			emphasised: false,
+			firstAfterPause: false,
+			pauseReason: null
+		});
+		expect(Number.isFinite(ms)).toBe(true);
+		expect(ms).toBeGreaterThan(0);
+	});
+
 	it('property: the pivot index always lands inside the word and within 0..4', () => {
 		for (let len = 1; len <= 40; len++) {
 			const p = cadence.pivotIndex(len);
@@ -229,6 +243,7 @@ describe('createReaderEngine — headless construction', () => {
 		expect(engine.isPlaying).toBe(true);
 		expect(engine.pivotIndex).toBe(cadence.pivotIndex('Hello'.length));
 		expect(engine.dwellMs).toBe(200);
+		expect(engine.remainingMs).toBe(400); // 2 words remaining × 200ms base
 	});
 
 	it('the injected clock drives word-by-word auto-advance to the end', () => {
@@ -376,6 +391,25 @@ describe('createReaderEngine — block state machine', () => {
 		expect(engine.token).toBeNull();
 
 		engine.toggle();
+		expect(engine.activeBlock).toBeNull();
+		expect(engine.token?.text).toBe('Done');
+		expect(engine.isPlaying).toBe(true);
+	});
+
+	it('reshowing the block you are paused on is a no-op and toggle still advances past it', () => {
+		const fc = makeFakeClock();
+		const engine = createReaderEngine({
+			segments: codeAhead(),
+			prefs: makePrefs({ ramp: false }),
+			clock: fc.clock
+		});
+		engine.play();
+		fc.advance(1000);
+		fc.advance(1000); // auto-paused on the code block
+		expect(engine.activeBlock?.kind).toBe('code');
+		engine.reshowLastBlock(); // already showing this block → no-op, not a re-show overlay
+		expect(engine.activeBlock?.kind).toBe('code');
+		engine.toggle(); // must advance past, not re-pause on the same block
 		expect(engine.activeBlock).toBeNull();
 		expect(engine.token?.text).toBe('Done');
 		expect(engine.isPlaying).toBe(true);
