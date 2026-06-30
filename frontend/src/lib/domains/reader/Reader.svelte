@@ -101,7 +101,9 @@
 		const notches = engine.blockNotches;
 		for (let i = 0; i < notches.length; i++) {
 			const notch = notches[i];
-			if (notch !== undefined && notch >= wi) return blockSegments[i]?.kind ?? null;
+			// Strictly ahead: a block's notch is the ordinal of the FIRST word after it, so `notch
+			// === wi` means that block is already behind us (we are on its first trailing word).
+			if (notch !== undefined && notch > wi) return blockSegments[i]?.kind ?? null;
 		}
 		return null;
 	});
@@ -159,11 +161,23 @@
 				reshown = false;
 				engine.stepForward();
 				break;
-			case 'reshowLastBlock':
-				reshown = true;
+			case 'reshowLastBlock': {
+				// The "again" affordance is only honest when the engine actually re-shows a block.
+				// It no-ops when we are already auto-paused on that block (a fresh auto-pause, not a
+				// re-show), so derive `reshown` from the resulting state rather than assuming it fired:
+				// keep a live re-show flagged, never flag a plain auto-pause.
+				const wasAutoPausedOnBlock = engine.activeBlock !== null && !reshown;
 				engine.reshowLastBlock();
+				if (!wasAutoPausedOnBlock) reshown = engine.activeBlock !== null;
 				break;
+			}
 		}
+	}
+
+	/** Step back one word (Transport replay / swipe-back); never a re-show. */
+	function replayWord(): void {
+		reshown = false;
+		engine.replayWord();
 	}
 
 	// THE single global keyboard + stage-gesture owner (§5.7): one $effect binds the window keydown
@@ -181,14 +195,8 @@
 		window.addEventListener('keydown', onKeydown);
 		const teardownSwipe = bindSwipe(el, {
 			onTap: () => run('toggle'),
-			onNext: () => {
-				reshown = false;
-				engine.stepForward();
-			},
-			onPrev: () => {
-				reshown = false;
-				engine.replayWord();
-			},
+			onNext: () => run('stepForward'),
+			onPrev: replayWord,
 			isIgnored: (t) => isInteractive(t as Element | null)
 		});
 		return () => {
@@ -258,17 +266,21 @@
 	</header>
 
 	<!--
-		The reading stage — R-STAGE's single focus + gesture surface. role="application" + tabindex
-		+ aria-label make it a focusable, labelled widget (§5.7); the swipe listener is attached
-		imperatively via bindSwipe in the $effect above (not a markup handler), and the keyboard
-		shortcuts are the focus-scoped window listener — so this surface carries no static-element
-		interaction warning.
+		The reading stage — R-STAGE's single focus + gesture surface. role="application" is the
+		container role §5.7 offers for the reading surface: it tells assistive tech to pass keystrokes
+		through (the window shortcuts) AND it legitimately wraps the interactive block cards (a code
+		card's wrap toggle is a real <button>) — role="button" would nest a button inside a button.
+		tabindex="-1" keeps it programmatically focusable (roving focus / tap-to-focus) without putting
+		a non-activatable surface in the Tab order; every gesture has a visible control equivalent
+		(Transport/Progress/header), so keyboard users are never locked out (WCAG 2.5.1). The swipe
+		listener is attached imperatively via bindSwipe in the $effect above (not a markup handler) and
+		the shortcuts are the focus-scoped window listener — so this surface raises no a11y warning.
 	-->
 	<div
 		bind:this={stageEl}
 		class="relative flex flex-1 items-center justify-center overflow-hidden px-4"
-		role="button"
-		tabindex="0"
+		role="application"
+		tabindex="-1"
 		aria-roledescription="speed reader"
 		aria-label="Reading stage — tap or press space to play or pause"
 	>
@@ -303,10 +315,7 @@
 	isPlaying={engine.isPlaying}
 	wpm={effectivePrefs.wpm}
 	onToggle={() => run('toggle')}
-	onReplayWord={() => {
-		reshown = false;
-		engine.replayWord();
-	}}
+	onReplayWord={replayWord}
 	onStepForward={() => run('stepForward')}
 	{onSpeed}
 />

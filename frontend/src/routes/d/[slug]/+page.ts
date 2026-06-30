@@ -22,15 +22,21 @@ import type { PageLoad } from './$types';
 export const ssr = false;
 
 export const load: PageLoad = async ({ fetch, url, params }) => {
-	const {
-		data,
-		error: apiError,
-		response
-	} = await api.GET('/digests/{slug}', {
-		params: { path: { slug: params.slug } },
-		fetch,
-		baseUrl: `${url.origin}/api`
-	});
+	// Only the seam call is guarded: a rejected `fetch` (offline / dead proxy) is a failure too and
+	// must surface the same 502, not a generic 500. The `error()` calls below must stay OUTSIDE the
+	// try — they throw SvelteKit redirect/error objects that this catch must not swallow.
+	let result;
+	try {
+		result = await api.GET('/digests/{slug}', {
+			params: { path: { slug: params.slug } },
+			fetch,
+			baseUrl: `${url.origin}/api`
+		});
+	} catch {
+		error(502, 'Failed to load the digest — is the Glyde server running?');
+	}
+
+	const { data, error: apiError, response } = result;
 
 	if (response.status === 404) {
 		error(404, 'That digest does not exist — it may have been removed, or the link is wrong.');
