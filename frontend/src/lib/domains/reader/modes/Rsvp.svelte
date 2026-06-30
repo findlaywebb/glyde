@@ -1,14 +1,16 @@
 <script lang="ts">
 	/**
-	 * The single-word RSVP view — Glyde's signature presentation.
+	 * The single-word RSVP view — Glyde's signature presentation; R-MODES owns this file.
 	 *
 	 * Reads the engine snapshot (`ReaderState`) and renders the current word split into
-	 * left / pivot / right around the engine's optimal-recognition-point (`pivotIndex`). The
-	 * pivot glyph is the one reserved reading colour (`text-pivot`) and is locked to a fixed
-	 * reticle column by a DOM measure-and-translate in the `$effect` below — measuring the
-	 * rendered glyph and shifting the word so the glyph's centre sits on the column, font- and
-	 * length-agnostic. Surrounding context words are dimmed (`text-reading-dim`) on their own
-	 * rows above and below, so they never perturb the pivot.
+	 * left / pivot / right around the engine's optimal-recognition-point (`pivotIndex`), through the
+	 * shared `Word` renderer (which also applies the token's agent emphasis). The pivot glyph is the
+	 * one reserved reading colour (`text-pivot`) and is locked to a fixed reticle column by a DOM
+	 * measure-and-translate in the `$effect` below — measuring the rendered glyph (`[data-pivot]`) and
+	 * shifting the word so the glyph's centre sits on the column, font- and length-agnostic.
+	 * Surrounding context words are dimmed (`text-reading-dim`) on their own rows above and below,
+	 * positioned clear of the word band and centred on the same column as the pivot, so they never
+	 * perturb or crowd the pivot.
 	 *
 	 * What it does NOT do: it computes no pacing (pivot index and dwell are the engine's), binds
 	 * no keys or `window` listeners (R-STAGE owns the single global listener), and never colours
@@ -18,34 +20,31 @@
 	 */
 	import type { ModeProps } from '../types';
 	import { pivotTranslateX } from './measure';
+	import Word from './Word.svelte';
 
 	// Renamed off the `state` prop: a local binding named `state` would make the `$state` rune
 	// below ambiguous with a store auto-subscription (`store_rune_conflict`).
 	let { state: reader }: ModeProps = $props();
 
 	const token = $derived(reader.token);
-	const text = $derived(token?.text ?? '');
 	const pivot = $derived(reader.pivotIndex);
-	const before = $derived(text.slice(0, pivot));
-	const glyph = $derived(text.charAt(pivot));
-	const after = $derived(text.slice(pivot + 1));
 	const contextBefore = $derived(reader.contextBefore);
 	const contextAfter = $derived(reader.contextAfter);
 
 	let wordEl = $state<HTMLSpanElement | null>(null);
-	let glyphEl = $state<HTMLSpanElement | null>(null);
 	let translateX = $state(0);
 
-	// DOM boundary: after each word renders, measure the pivot glyph and translate the word so the
-	// glyph centre lands on the reticle column. Reading `text` + `pivot` registers them as deps so
-	// the measure re-runs on every word change; `translateX` is written but not read, so no loop.
+	// DOM boundary: after each word renders, measure the pivot glyph (the `[data-pivot]` span the
+	// shared Word renderer marks) and translate the word so the glyph centre lands on the reticle
+	// column. Reading `token` + `pivot` registers them as deps so the measure re-runs on every word
+	// change; `translateX` is written but not read, so no loop.
 	$effect(() => {
-		void text;
+		void token;
 		void pivot;
 		const word = wordEl;
-		const mark = glyphEl;
 		const wrap = word?.parentElement;
-		if (!word || !mark || !wrap) return;
+		const mark = word?.querySelector<HTMLElement>('[data-pivot]');
+		if (!word || !wrap || !mark) return;
 		translateX = pivotTranslateX(wrap.clientWidth, mark.offsetLeft, mark.offsetWidth);
 	});
 </script>
@@ -54,7 +53,7 @@
 	{#if token}
 		{#if contextBefore.length > 0}
 			<div class="ctx-row ctx-above text-reading-dim" aria-hidden="true">
-				{contextBefore.map((t) => t.text).join(' ')}
+				<span class="ctx-text">{contextBefore.map((t) => t.text).join(' ')}</span>
 			</div>
 		{/if}
 
@@ -65,14 +64,13 @@
 
 		<div class="word-wrap">
 			<span class="word" bind:this={wordEl} style:transform="translate({translateX}px, -50%)">
-				<span>{before}</span><span class="text-pivot" data-pivot bind:this={glyphEl}>{glyph}</span
-				><span>{after}</span>
+				<Word {token} {pivot} />
 			</span>
 		</div>
 
 		{#if contextAfter.length > 0}
 			<div class="ctx-row ctx-below text-reading-dim" aria-hidden="true">
-				{contextAfter.map((t) => t.text).join(' ')}
+				<span class="ctx-text">{contextAfter.map((t) => t.text).join(' ')}</span>
 			</div>
 		{/if}
 	{/if}
@@ -133,27 +131,39 @@
 		top: 1.05em;
 	}
 
-	/* Context rows live on their own layer so they never shift the pivot. */
+	/* Context rows live on their own zero-height layer so they never shift the pivot. The layer
+	   inherits the stage font-size (the small text size is on .ctx-text), so the vertical offset is
+	   expressed in STAGE em and scales with the reading size — clearing the word band above/below
+	   rather than overlapping it (the previous offset was in the shrunk context font, far too small).
+	   `justify-content: center` locks the row to the stage midpoint, the column the reticle sits on
+	   and onto which the pivot glyph is translated — so context stays aligned with the pivot. */
 	.ctx-row {
 		position: absolute;
 		left: 0;
 		right: 0;
-		text-align: center;
+		top: 50%;
+		height: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
+		pointer-events: none;
+	}
+
+	.ctx-above {
+		transform: translateY(-1.5em);
+	}
+
+	.ctx-below {
+		transform: translateY(1.5em);
+	}
+
+	.ctx-text {
+		max-width: 100%;
 		font-size: 0.42em;
 		font-weight: 400;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		pointer-events: none;
-	}
-
-	.ctx-above {
-		top: 50%;
-		margin-top: -1.5em;
-	}
-
-	.ctx-below {
-		top: 50%;
-		margin-top: 1.5em;
 	}
 </style>

@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import Flow from './Flow.svelte';
 import type { Mode, ModeProps, ReaderState, TokenView } from '../types';
 
-/** A word `TokenView` for fixtures. */
-function word(text: string): TokenView {
-	return { text, kind: 'word', emphasis: 'none' };
+/** A word `TokenView` for fixtures (punctuation retained verbatim, as the parser emits it). */
+function word(text: string, emphasis: TokenView['emphasis'] = 'none'): TokenView {
+	return { text, kind: 'word', emphasis };
 }
 
 /** Assert a queried element exists and narrow it (avoids `!` under noUncheckedIndexedAccess). */
@@ -14,9 +14,14 @@ function must<T extends Element>(el: T | null): T {
 	return el;
 }
 
-/** The `.fw` word spans as a definite-length array of elements. */
+/** The rendered clause-word spans, in document order. */
 function fwSpans(container: HTMLElement): HTMLElement[] {
 	return Array.from(container.querySelectorAll<HTMLElement>('.fw'));
+}
+
+/** The text of each rendered clause word. */
+function fwTexts(container: HTMLElement): string[] {
+	return fwSpans(container).map((s) => s.textContent?.trim() ?? '');
 }
 
 /** Index into an array, asserting the element is present. */
@@ -61,14 +66,15 @@ function readerState(over: Partial<ReaderState>): ReaderState {
 	};
 }
 
-const WORDS = ['the', 'quick', 'brown', 'fox', 'jumps'].map(word);
+// Two clauses: "the quick brown fox," (0..3) and "jumps over." (4..5).
+const WORDS = ['the', 'quick', 'brown', 'fox,', 'jumps', 'over.'].map((w) => word(w));
 
 /** Mount `Flow` at a word position in a given mode. */
-function mountFlow(mode: Mode, wordIndex: number) {
+function mountFlow(mode: Mode, wordIndex: number, words: TokenView[] = WORDS) {
 	const props: ModeProps = {
 		mode,
-		state: readerState({ wordIndex, wordCount: WORDS.length }),
-		words: WORDS
+		state: readerState({ wordIndex, wordCount: words.length }),
+		words
 	};
 	return render(Flow, props);
 }
@@ -77,50 +83,65 @@ beforeEach(() => {
 	stubReducedMotion(false);
 });
 
-describe('Flow guided sweep', () => {
-	it('renders every word and tracks the current position', () => {
-		const { container } = mountFlow('guided', 2);
-		const spans = fwSpans(container);
-		expect(spans).toHaveLength(WORDS.length);
-		expect(container.querySelector('[data-mode="guided"]')).not.toBeNull();
-
-		const cur = at(spans, 2);
-		// The current word carries the `cur` marker class (its underline is styled in CSS).
-		expect(cur.className).toContain('cur');
-		expect(cur.getAttribute('data-flow-state')).toBe('cur');
-	});
-
-	it('separates words with real whitespace so the line can wrap', () => {
+describe('Flow renders only the current clause (no skip-ahead)', () => {
+	it('keeps the flow root and the mode marker', () => {
 		const { container } = mountFlow('guided', 0);
-		// Each word keeps a trailing space (a runtime expression survives compile-time trimming),
-		// so words are visually separated and the inline spans have line-break opportunities.
-		expect(at(fwSpans(container), 0).textContent).toBe('the ');
-		expect(must(container.querySelector('.flow-content')).textContent).toContain(
-			'the quick brown fox jumps'
-		);
+		expect(container.querySelector('.flow')).not.toBeNull();
+		expect(container.querySelector('[data-mode="guided"]')).not.toBeNull();
 	});
 
-	it('marks already-read words and leaves the road ahead un-read', () => {
+	it('never renders words from a future clause', () => {
+		const { container } = mountFlow('guided', 1);
+		const texts = fwTexts(container);
+		// The next clause ("jumps", "over.") must not be present anywhere in the DOM.
+		expect(texts).not.toContain('jumps');
+		expect(texts).not.toContain('over.');
+		expect(container.textContent).not.toContain('jumps');
+	});
+
+	it('swaps discretely to the next clause once the position crosses the terminator', () => {
+		const { container } = mountFlow('fading', 4);
+		const texts = fwTexts(container);
+		expect(texts).toContain('jumps');
+		expect(texts).toContain('over.');
+		// The previous clause is gone entirely.
+		expect(container.textContent).not.toContain('brown');
+	});
+});
+
+describe('Flow guided sweep', () => {
+	it('removes already-read words and marks the current word', () => {
 		const { container } = mountFlow('guided', 2);
-		const spans = fwSpans(container);
-		expect(at(spans, 0).getAttribute('data-flow-state')).toBe('read');
-		expect(at(spans, 1).getAttribute('data-flow-state')).toBe('read');
-		expect(at(spans, 1).className).toContain('read');
-		expect(at(spans, 3).getAttribute('data-flow-state')).toBe('ahead');
-		expect(at(spans, 4).getAttribute('data-flow-state')).toBe('ahead');
+		const texts = fwTexts(container);
+		// Read words ("the", "quick") are removed from the DOM, not merely dimmed.
+		expect(texts).not.toContain('the');
+		expect(texts).not.toContain('quick');
+		// The current word and the remaining road within the clause stay.
+		expect(texts).toEqual(['brown', 'fox,']);
+		const cur = must(container.querySelector('.fw.cur'));
+		expect(cur.textContent?.trim()).toBe('brown');
+		expect(cur.getAttribute('data-flow-state')).toBe('cur');
 	});
 });
 
 describe('Flow fading trail', () => {
-	it('marks read words for the fade-out and keeps the fading data-mode', () => {
-		const { container } = mountFlow('fading', 3);
-		expect(container.querySelector('[data-mode="fading"]')).not.toBeNull();
+	it('keeps read words (to fade out), marks the current, and dims the road ahead', () => {
+		const { container } = mountFlow('fading', 2);
 		const spans = fwSpans(container);
-		for (let i = 0; i < 3; i++) {
-			expect(at(spans, i).className).toContain('read');
-		}
-		expect(at(spans, 3).className).toContain('cur');
-		expect(at(spans, 4).className).not.toContain('read');
+		// All four words of the clause remain in the DOM.
+		expect(fwTexts(container)).toEqual(['the', 'quick', 'brown', 'fox,']);
+		expect(at(spans, 0).className).toContain('read');
+		expect(at(spans, 1).className).toContain('read');
+		expect(at(spans, 2).className).toContain('cur');
+		expect(at(spans, 3).getAttribute('data-flow-state')).toBe('ahead');
+	});
+});
+
+describe('Flow emphasis', () => {
+	it('renders agent emphasis on the clause words', () => {
+		const words = [word('plain'), word('vivid', 'strong'), word('done.')];
+		const { container } = mountFlow('guided', 0, words);
+		expect(container.querySelector(`.fw .w[data-em='strong']`)).not.toBeNull();
 	});
 });
 
@@ -128,8 +149,6 @@ describe('Flow reduced motion', () => {
 	it('flags the motion gate when prefers-reduced-motion is set', () => {
 		stubReducedMotion(true);
 		const { container } = mountFlow('fading', 2);
-		// `.reduced` switches off the opacity transition (the only animation), so a reduced-motion
-		// reader gets the instant outcome with no fade travel.
 		expect(must(container.querySelector('.flow')).className).toContain('reduced');
 	});
 
