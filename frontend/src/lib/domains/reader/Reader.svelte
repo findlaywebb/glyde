@@ -3,11 +3,18 @@
 	 * The composing reader stage — R-STAGE owns this file.
 	 *
 	 * Wires the frozen reader pieces into one working reader: it constructs the R-CORE engine
-	 * (`createReaderEngine`) over the digest's segments, renders the active mode view (R-MODES
-	 * `Rsvp`/`Flow`), the R-BLOCKS pause-and-show card for the active block segment, the
-	 * block-ahead cue, and the R-CHROME `Transport` + `Progress` — passing each its frozen prop
+	 * (`createReaderEngine`) over the digest's segments, routes the active mode view (R-MODES
+	 * `Rsvp` for `rsvp`, `Focus` for `focus`, `Flow` for `guided`/`fading`), the R-BLOCKS
+	 * pause-and-show card for the active block segment, the block-ahead cue, the R-CHROME
+	 * `Transport` + `Progress`, and the slide-out `SettingsPanel` — passing each its frozen prop
 	 * contract (§5.7) computed from engine state. Preferences flow in through PREF's
 	 * `createPrefsStore` (§5.10), injected as a prop so the persist round-trip is testable.
+	 *
+	 * The reader carries TWO intentional mode switchers — the always-visible header quick toggle and
+	 * the SettingsPanel's full mode control — both writing through the one shared `store`, so they
+	 * stay consistent. A SettingsPanel edit (`store.set`) re-paces through the existing
+	 * `effectivePrefs` $derived → `setPrefs` $effect and updates the reading CSS vars live, with no
+	 * reload and no pacing recomputed in the panel; R-STAGE owns only the panel's `open` boolean.
 	 *
 	 * R-STAGE is the SOLE owner of the reader's global input (§5.7): one `$effect` binds the single
 	 * `window` keydown (via the pure `keyToIntent` map) and the single stage swipe (via `bindSwipe`);
@@ -24,11 +31,13 @@
 	 */
 	import type { Component } from 'svelte';
 	import { untrack } from 'svelte';
+	import { Settings } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import type { PrefsStore } from '$lib/domains/preferences/prefs.svelte';
 	import { createReaderEngine } from './index';
 	import type { BlockCardProps, BlockView, Mode, ReaderClock, SegmentView } from './index';
-	import { Flow, Rsvp } from './modes';
+	import { Flow, Focus, Rsvp } from './modes';
 	import {
 		BlockAheadCue,
 		CodeCard,
@@ -40,6 +49,7 @@
 	} from './blocks';
 	import Progress from './Progress.svelte';
 	import Transport from './Transport.svelte';
+	import SettingsPanel from './SettingsPanel.svelte';
 	import { bindSwipe, clampWpm, keyToIntent, type ReaderIntent } from './input';
 
 	interface ReaderProps {
@@ -55,11 +65,16 @@
 
 	let { segments, store, title, clock }: ReaderProps = $props();
 
-	/** The three reading modes, in the order they appear in the header switch. */
+	// The header quick-toggle of the reading modes, canonical labels (docs/glossary.md), in switch
+	// order. INTENTIONAL DUPLICATION: this is one of two mode switchers. The slide-out SettingsPanel
+	// below carries the full mode control too. Both write through the SAME shared `store` (via
+	// `store.set`), so they never disagree — keep BOTH (the header is the always-visible quick
+	// toggle; the panel the full settings surface). Do not deduplicate them.
 	const MODES: { value: Mode; label: string }[] = [
-		{ value: 'guided', label: 'Guided' },
+		{ value: 'guided', label: 'Guided sweep' },
 		{ value: 'rsvp', label: 'RSVP' },
-		{ value: 'fading', label: 'Fading' }
+		{ value: 'fading', label: 'Fading trail' },
+		{ value: 'focus', label: 'Focus' }
 	];
 
 	/** Map each block kind to its R-BLOCKS card; R-STAGE mounts the right one per `block.kind`. */
@@ -84,6 +99,11 @@
 	const engine = untrack(() => createReaderEngine({ segments, prefs: effectivePrefs, clock }));
 
 	let stageEl = $state<HTMLElement | null>(null);
+	// The slide-out SettingsPanel's open state — R-STAGE owns it (the panel takes `open` as a plain
+	// boolean, NOT $bindable) and flips it false via the panel's onClose. The panel writes through
+	// the SAME shared `store`, so a change re-paces through the existing effectivePrefs $derived →
+	// setPrefs $effect path and updates the CSS vars instantly — no reload, no pacing recomputed here.
+	let settingsOpen = $state(false);
 	// True only while the current block card was surfaced by the ArrowLeft re-show (the subtle
 	// "again" affordance, §5.7) — not while playback auto-paused on a freshly reached block.
 	let reshown = $state(false);
@@ -263,6 +283,15 @@
 				>
 			{/each}
 		</div>
+		<!-- Gear: opens the slide-out SettingsPanel (the full settings surface). min-h/w-11 ≥44px. -->
+		<button
+			type="button"
+			class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+			onclick={() => (settingsOpen = true)}
+			aria-label="Reading settings"
+		>
+			<Icon icon={Settings} size={20} />
+		</button>
 	</header>
 
 	<!--
@@ -295,6 +324,8 @@
 			</div>
 		{:else if engine.mode === 'rsvp'}
 			<Rsvp mode={engine.mode} state={engine} words={engine.words} />
+		{:else if engine.mode === 'focus'}
+			<Focus mode={engine.mode} state={engine} words={engine.words} />
 		{:else}
 			<Flow mode={engine.mode} state={engine} words={engine.words} />
 		{/if}
@@ -319,6 +350,14 @@
 	onStepForward={() => run('stepForward')}
 	{onSpeed}
 />
+
+<!--
+	The slide-out settings panel (U2), mounted with FND's frozen SettingsPanelProps. It receives the
+	SAME shared `store` the engine reads from (never a new instance), so each control's `store.set`
+	flows back through this component's `effectivePrefs` $derived → setPrefs $effect (re-pacing) and
+	the size/spacing/font/theme CSS vars — live, no reload. `open` is owned here; `onClose` flips it.
+-->
+<SettingsPanel {store} open={settingsOpen} onClose={() => (settingsOpen = false)} />
 
 <!-- The single coordinated screen-reader announcer (§5.7): play/pause, block shown, speed, end. -->
 <div class="sr-only" aria-live="polite" aria-atomic="true" data-testid="reader-announcer">
