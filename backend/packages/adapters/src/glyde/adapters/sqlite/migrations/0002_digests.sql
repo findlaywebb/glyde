@@ -1,13 +1,10 @@
--- Declarative schema anchor: the cumulative result of applying every migration
--- under migrations/, in order. This file is NEVER executed by the runner; a test
--- builds a database both ways (apply migrations vs run this script) and asserts
--- the two schemas converge. Keep it in lockstep with every new migration.
-
-CREATE TABLE records (
-    id         TEXT PRIMARY KEY,
-    name       TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
+-- The Digest IR schema. Forward-only; the runner owns the transaction, so this
+-- script carries NO explicit BEGIN/COMMIT/ROLLBACK. Keep schema.sql (the
+-- declarative anchor) equal to the cumulative result of every migration.
+--
+-- `digests` stores a digest's metadata as typed columns and its segments
+-- timeline as one JSON blob; `preferences` is per-user reading config; `history`
+-- is scaffolded for a later resume/settings-used feature (no v1 code path).
 
 CREATE TABLE digests (
     id                TEXT PRIMARY KEY,
