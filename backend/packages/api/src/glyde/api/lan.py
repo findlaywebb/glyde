@@ -51,7 +51,9 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _LOOPBACK = "127.0.0.1"
-_NODE_BIND = "0.0.0.0"  # the load-bearing LAN bind for the node front door
+# `serve --lan` is opt-in LAN exposure, so the node door always binds all interfaces — the
+# load-bearing bind. (`settings.lan_host` is the URL host the CLI prints, not this bind.)
+_NODE_BIND = "0.0.0.0"
 _PROBE_ATTEMPTS = 40
 _PROBE_DELAY = 0.5
 _PROBE_TIMEOUT = 1.0
@@ -172,9 +174,8 @@ def _unverified_context() -> ssl.SSLContext:
     return context
 
 
-def _probe_once(url: str, *, insecure: bool) -> bool:
+def _probe_once(url: str, context: ssl.SSLContext | None) -> bool:
     """Return True if the URL answers (any HTTP status), False if unreachable."""
-    context = _unverified_context() if insecure else None
     try:
         with urllib.request.urlopen(url, timeout=_PROBE_TIMEOUT, context=context):
             return True
@@ -198,10 +199,11 @@ def _wait_until_ready(
     Raises:
         RuntimeError: When the process exits during startup or never answers.
     """
+    context = _unverified_context() if insecure else None  # built once, reused per attempt
     for _ in range(_PROBE_ATTEMPTS):
         if proc.poll() is not None:
             raise RuntimeError(f"{label} exited during startup (code {proc.returncode})")
-        if _probe_once(url, insecure=insecure):
+        if _probe_once(url, context):
             return
         time.sleep(_PROBE_DELAY)
     raise RuntimeError(f"{label} did not become ready at {url}")
@@ -249,22 +251,31 @@ def serve_lan(settings: Settings) -> None:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
 
+    if settings.lan_https and not _https_enabled(settings):
+        logger.warning(
+            "lan_https is set but lan_cert_path/lan_key_path are missing — "
+            "serving plain HTTP (an installable/offline PWA needs a secure context)"
+        )
     lan_ip = _detect_lan_ip()
     scheme = "https" if _https_enabled(settings) else "http"
     origin = f"{scheme}://{lan_ip}:{settings.lan_port}"
     token = settings.lan_token or secrets.token_urlsafe(32)
 
     logger.info("starting LAN serve: FastAPI loopback :%d, node door %s", settings.port, origin)
+    # Nested try/finally so the FastAPI child is always torn down — including when
+    # _spawn_node raises (e.g. no `node` on PATH) before the node door even starts.
     api_proc = _spawn_fastapi(settings)
-    node_proc = _spawn_node(frontend, settings, origin, token)
     try:
-        _wait_until_ready(f"http://{_LOOPBACK}:{settings.port}/healthz", api_proc, "FastAPI")
-        node_probe = f"{scheme}://{_LOOPBACK}:{settings.lan_port}/api/healthz"
-        _wait_until_ready(node_probe, node_proc, "LAN front door", insecure=(scheme == "https"))
-        _announce(origin, token)
-        node_proc.wait()
-    except KeyboardInterrupt:
-        logger.info("shutting down the LAN servers")
+        node_proc = _spawn_node(frontend, settings, origin, token)
+        try:
+            _wait_until_ready(f"http://{_LOOPBACK}:{settings.port}/healthz", api_proc, "FastAPI")
+            node_probe = f"{scheme}://{_LOOPBACK}:{settings.lan_port}/api/healthz"
+            _wait_until_ready(node_probe, node_proc, "LAN front door", insecure=(scheme == "https"))
+            _announce(origin, token)
+            node_proc.wait()
+        except KeyboardInterrupt:
+            logger.info("shutting down the LAN servers")
+        finally:
+            _terminate(node_proc)
     finally:
-        _terminate(node_proc)
         _terminate(api_proc)

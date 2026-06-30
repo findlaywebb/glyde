@@ -60,6 +60,19 @@ function guardRejection(status: number, code: string): Response {
 }
 
 /**
+ * True when `Authorization` is `Bearer <token>` — the scheme is matched case-insensitively
+ * (RFC 7235 auth schemes are case-insensitive); the token value is compared exactly.
+ */
+function hasBearerToken(request: Request, token: string): boolean {
+	const header = request.headers.get('authorization');
+	if (header === null) {
+		return false;
+	}
+	const [scheme, value] = header.split(' ');
+	return scheme?.toLowerCase() === 'bearer' && value === token;
+}
+
+/**
  * Decide whether an `/api` request may proceed, returning a rejection `Response` or `null`.
  *
  * Reads (`GET`) always pass. A mutation is rejected when its present `Origin` is cross-origin
@@ -80,10 +93,7 @@ export function guardApiMutation(request: Request, config: ApiGuardConfig): Resp
 	if (origin !== null && origin !== config.expectedOrigin) {
 		return guardRejection(403, 'forbidden_origin');
 	}
-	if (
-		config.lanToken !== '' &&
-		request.headers.get('authorization') !== `Bearer ${config.lanToken}`
-	) {
+	if (config.lanToken !== '' && !hasBearerToken(request, config.lanToken)) {
 		return guardRejection(401, 'missing_token');
 	}
 	return null;

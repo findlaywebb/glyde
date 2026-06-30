@@ -68,6 +68,19 @@ describe('guardApiMutation', () => {
 		expect(res).toBeNull();
 	});
 
+	test('the Bearer scheme is matched case-insensitively (RFC 7235), the token exactly', async () => {
+		const ok = guardApiMutation(apiRequest('POST', { authorization: 'bearer secret' }), {
+			expectedOrigin: ORIGIN,
+			lanToken: 'secret'
+		});
+		expect(ok).toBeNull();
+		const wrongToken = guardApiMutation(apiRequest('POST', { authorization: 'BEARER Secret' }), {
+			expectedOrigin: ORIGIN,
+			lanToken: 'secret'
+		});
+		await expectRejection(wrongToken, 401, 'missing_token');
+	});
+
 	test('an absent Origin is allowed (SSR/local agent) but the token still applies', async () => {
 		const ok = guardApiMutation(apiRequest('POST', { authorization: 'Bearer secret' }), {
 			expectedOrigin: ORIGIN,
