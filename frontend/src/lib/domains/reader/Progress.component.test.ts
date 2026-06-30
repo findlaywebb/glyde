@@ -116,4 +116,15 @@ describe('Progress', () => {
 		render(Progress, makeProps({ wordIndex: 30, wordCount: 100 }));
 		expect(screen.getByText('30 / 100')).toBeInTheDocument();
 	});
+
+	it('renders all notches without throwing when blockNotches contains duplicate positions', () => {
+		// Regression: consecutive blocks with no prose between them share the same word index.
+		// Keying by value caused each_key_duplicate → blank reader. Key must be by index.
+		const { container } = render(
+			Progress,
+			makeProps({ blockNotches: [262, 262, 262], wordCount: 500 })
+		);
+		const notches = container.querySelectorAll('[data-testid="notch"]');
+		expect(notches).toHaveLength(3);
+	});
 });
