@@ -8,7 +8,6 @@
 	// `aria-hidden` so screen readers skip it (correct when an adjacent <button>/text already
 	// carries the label).
 	import type { Component } from 'svelte';
-	import { cn } from '$lib/utils';
 
 	interface Props {
 		icon: Component;
@@ -27,4 +26,4 @@
 	);
 </script>
 
-<Glyph {size} class={cn(className)} {...a11y} />
+<Glyph {size} class={className} {...a11y} />

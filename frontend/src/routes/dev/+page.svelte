@@ -9,10 +9,14 @@
 	import Sheet from '$lib/components/ui/Sheet.svelte';
 	import Slider from '$lib/components/ui/Slider.svelte';
 
-	let speed = $state(350);
-	let sheetOpen = $state(false);
-
 	const themes = ['dark', 'light', 'sepia'] as const;
+	type Theme = (typeof themes)[number];
+
+	// Per-scope slider state so the three demos stay independent (dragging one does not move
+	// the others), matching the harness's "each scope in isolation" purpose.
+	let speeds = $state<Record<Theme, number>>({ dark: 350, light: 350, sepia: 350 });
+	let sheetSpeed = $state(350);
+	let sheetOpen = $state(false);
 
 	const surfaceSwatches = [
 		['background', 'bg-background'],
@@ -35,7 +39,7 @@
 	</div>
 {/snippet}
 
-{#snippet gallery(theme: string)}
+{#snippet gallery(theme: Theme)}
 	<section
 		class="flex flex-col gap-6 rounded-2xl border border-border bg-background p-5 text-foreground"
 	>
@@ -82,8 +86,14 @@
 		</div>
 
 		<!-- slider -->
-		<Slider bind:value={speed} min={100} max={900} step={25} aria-label="Reading speed ({theme})" />
-		<span class="font-mono text-xs text-muted-foreground">{speed} wpm</span>
+		<Slider
+			bind:value={speeds[theme]}
+			min={100}
+			max={900}
+			step={25}
+			aria-label="Reading speed ({theme})"
+		/>
+		<span class="font-mono text-xs text-muted-foreground">{speeds[theme]} wpm</span>
 
 		<!-- sheet trigger -->
 		<Button variant="secondary" onclick={() => (sheetOpen = true)}>Open sheet</Button>
@@ -112,6 +122,12 @@
 		A bottom Sheet — Escape or a backdrop tap dismisses it. Motion is gated on
 		prefers-reduced-motion.
 	</p>
-	<Slider bind:value={speed} min={100} max={900} step={25} aria-label="Reading speed (sheet)" />
+	<Slider
+		bind:value={sheetSpeed}
+		min={100}
+		max={900}
+		step={25}
+		aria-label="Reading speed (sheet)"
+	/>
 	<Button variant="primary" onclick={() => (sheetOpen = false)}>Done</Button>
 </Sheet>

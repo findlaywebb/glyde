@@ -9,8 +9,8 @@ import Sheet from './Sheet.svelte';
 import Slider from './Slider.svelte';
 import { INSTALL_HINT_DISMISSED_KEY } from './install-hint';
 
-// jsdom has no matchMedia; prefersReducedMotion (Sheet) and the display-mode probe
-// (InstallHint) both need it. Stub a non-matching query: motion on, not standalone.
+// jsdom has no matchMedia; InstallHint's display-mode probe needs it. Stub a non-matching
+// query (not standalone) so the iOS install hint is allowed to show.
 beforeAll(() => {
 	if (!window.matchMedia) {
 		window.matchMedia = (query: string) =>

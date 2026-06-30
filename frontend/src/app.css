@@ -153,6 +153,10 @@
 	--color-reading-dim: var(--reading-dim);
 	--color-cue: var(--cue);
 
+	/* modal scrim — intentionally theme-independent (a dim is dark in every theme), so it is
+	   a literal here rather than a per-scope var. The token keeps components off raw palette. */
+	--color-overlay: rgb(0 0 0 / 0.5);
+
 	/* faces — Atkinson Hyperlegible for the streamed word, Lexend for chrome */
 	--font-reading: 'Atkinson Hyperlegible', system-ui, sans-serif;
 	--font-ui: 'Lexend', system-ui, sans-serif;

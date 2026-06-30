@@ -16,7 +16,12 @@
 		const nav = navigator as Navigator & { standalone?: boolean };
 		const standalone =
 			nav.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
-		visible = isIosInstallable(navigator.userAgent, standalone, dismissed);
+		visible = isIosInstallable(
+			navigator.userAgent,
+			navigator.maxTouchPoints,
+			standalone,
+			dismissed
+		);
 	});
 
 	function dismiss() {
