@@ -2,6 +2,14 @@
 
 import httpx
 
+from glyde.api.schemas import PreferencesView
+from glyde.core import Preferences
+
+
+def test_wire_view_defaults_match_the_core_defaults() -> None:
+    """PreferencesView defaults equal core Preferences defaults (no silent drift)."""
+    assert PreferencesView().model_dump() == Preferences().model_dump()
+
 
 async def test_get_defaults_to_guided(digest_client: httpx.AsyncClient) -> None:
     """An owner with no stored preferences gets the guided defaults."""
