@@ -4,11 +4,27 @@
   Hairline scrubber bar with block notches and prominent time-remaining. The range input is the
   sole interactive element (aria-label + keyboard navigation); the visual track and notches are
   decorative (aria-hidden). Time is rendered in tabular-nums. No global event listeners.
+
+  The thumb shows `wordIndex` (the engine's live position) EXCEPT during an active drag, when the
+  user owns it: `dragValue` holds the in-flight position so an engine word-advance mid-drag does
+  not snap the thumb back. `dragValue` is genuine UI state; `displayValue` is a pure `$derived`.
+  When `wordCount` is 0 (empty digest) the scrubber is disabled, so no out-of-range `onScrub`
+  fires.
 -->
 <script lang="ts">
 	import type { ProgressProps } from './types';
 
 	let { wordIndex, wordCount, remainingMs, blockNotches, onScrub }: ProgressProps = $props();
+
+	// The user's in-flight drag position, or null when the engine owns the thumb. While non-null,
+	// `displayValue` ignores `wordIndex`, so the thumb does not flicker as the engine advances.
+	let dragValue = $state<number | null>(null);
+
+	/** Thumb position: the live drag value while dragging, else the engine's `wordIndex`. */
+	const displayValue = $derived(dragValue ?? wordIndex);
+
+	/** The highest valid 0-based scrub target (0 when the digest has no words). */
+	const maxIndex = $derived(Math.max(wordCount - 1, 0));
 
 	/** Filled percentage of the scrubber bar (0–100). */
 	const pct = $derived(wordCount > 0 ? (wordIndex / wordCount) * 100 : 0);
@@ -68,12 +84,18 @@
 		<input
 			type="range"
 			min={0}
-			max={Math.max(wordCount, 1)}
-			value={wordIndex}
+			max={maxIndex}
+			value={displayValue}
 			step={1}
+			disabled={wordCount === 0}
 			aria-label="Reading position"
-			class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-			onchange={(e) => onScrub(e.currentTarget.valueAsNumber)}
+			class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-default"
+			oninput={(e) => (dragValue = e.currentTarget.valueAsNumber)}
+			onchange={(e) => {
+				onScrub(e.currentTarget.valueAsNumber);
+				dragValue = null;
+			}}
+			onpointercancel={() => (dragValue = null)}
 		/>
 	</div>
 </div>
