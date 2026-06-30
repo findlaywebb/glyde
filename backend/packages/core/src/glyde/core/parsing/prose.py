@@ -36,6 +36,9 @@ if TYPE_CHECKING:
 _CLAUSE = ",;:"
 _SENTENCE = ".!?…"
 _TERMINATORS: frozenset[str] = frozenset(_CLAUSE + _SENTENCE)
+# A trailing bare terminator only merges when there is a preceding word token to
+# attach it to, i.e. at least the word token plus the terminator token.
+_MIN_TOKENS_FOR_TERMINATOR_MERGE = 2
 _SPAN = re.compile(r"==(.+?)==|`(.+?)`|\*(.+?)\*|_(.+?)_")
 _EMPHASIS: dict[int, Literal["strong", "code", "em"]] = {1: "strong", 2: "code", 3: "em", 4: "em"}
 
@@ -122,7 +125,7 @@ def tokenize_run(text: str) -> list[Token]:
     tokens.extend(_words(text[position:], "none"))
     # Merge a trailing bare terminator onto the preceding token so an emphasis
     # span like ==done==. never emits a standalone punctuation token.
-    if len(tokens) >= 2 and tokens[-1].text in _TERMINATORS:
+    if len(tokens) >= _MIN_TOKENS_FOR_TERMINATOR_MERGE and tokens[-1].text in _TERMINATORS:
         tail = tokens.pop()
         prev = tokens[-1]
         tokens[-1] = Token(text=prev.text + tail.text, emphasis=prev.emphasis)
