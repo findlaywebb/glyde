@@ -4,6 +4,50 @@
  */
 
 export interface paths {
+    "/digests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List digests
+         * @description Every digest newest-first, each with metadata and derived shape counts.
+         */
+        get: operations["list_digests_digests_get"];
+        put?: never;
+        /**
+         * Create a digest
+         * @description Parse/segment the input, mint id + slug, stamp time, persist, and return the IR.
+         */
+        post: operations["create_digest_digests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/digests/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fetch a digest
+         * @description Return the full IR for the digest with the given slug, or a 404 rejection.
+         */
+        get: operations["get_digest_digests__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -17,6 +61,30 @@ export interface paths {
          */
         get: operations["healthz_healthz_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get preferences
+         * @description Return the stored reading preferences for an owner, or the defaults.
+         */
+        get: operations["get_preferences_preferences_get"];
+        /**
+         * Replace preferences
+         * @description Full-replace the owner's reading preferences (upsert) and return them.
+         */
+        put: operations["put_preferences_preferences_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -73,6 +141,121 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * BlockView
+         * @description The wire projection of a non-streamed block shown as a static card.
+         */
+        BlockView: {
+            /**
+             * Alt
+             * @description Image alt text for an image block, else null.
+             */
+            alt?: string | null;
+            /**
+             * Content
+             * @description The raw block content, shown verbatim, never streamed.
+             */
+            content: string;
+            /**
+             * Kind
+             * @description The block kind, selecting which card the reader renders.
+             * @enum {string}
+             */
+            kind: "code" | "table" | "image" | "quote" | "math" | "note";
+            /**
+             * Lang
+             * @description Code language for a code block, else null.
+             */
+            lang?: string | null;
+            /**
+             * Lead
+             * @description The prose runway sentence the block follows, else null.
+             */
+            lead?: string | null;
+            /**
+             * Linear Form
+             * @description Spoken form for promoted math, else null.
+             */
+            linear_form?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "block";
+        };
+        /**
+         * CountsView
+         * @description The derived shape counts shown on a library list item.
+         */
+        CountsView: {
+            /**
+             * Blocks By Kind
+             * @description Count of blocks keyed by block kind.
+             */
+            blocks_by_kind: {
+                [key: string]: number;
+            };
+            /**
+             * Words
+             * @description Total word tokens across the digest's prose.
+             */
+            words: number;
+        };
+        /**
+         * CreateDigestRequest
+         * @description The create body; exactly one of ``text`` / ``segments`` is required.
+         */
+        CreateDigestRequest: {
+            /**
+             * Enrich
+             * @description Request an enrich pass on raw text when available.
+             * @default false
+             */
+            enrich: boolean;
+            /**
+             * Ingested Via
+             * @description The channel the digest was ingested through.
+             * @default cli
+             * @enum {string}
+             */
+            ingested_via: "cli" | "api" | "mcp";
+            /**
+             * Name
+             * @description The agent-given semantic title (non-blank).
+             */
+            name: string;
+            /**
+             * Origin
+             * @description Origin locator, else null.
+             */
+            origin?: string | null;
+            /**
+             * Producer
+             * @description The producing agent/model label.
+             */
+            producer?: string | null;
+            /**
+             * Segments
+             * @description Pre-segmented IR, if not supplying text.
+             */
+            segments?: (components["schemas"]["ProseSegmentView"] | components["schemas"]["PauseView"] | components["schemas"]["BlockView"])[] | null;
+            /**
+             * Source Kind
+             * @description The kind of source the digest came from.
+             * @enum {string}
+             */
+            source_kind: "agent" | "file" | "cli" | "paste" | "pipe" | "api";
+            /**
+             * Tags
+             * @description Free-form tags for the digest.
+             */
+            tags?: string[];
+            /**
+             * Text
+             * @description Glyde-Markdown source to parse, if not pre-segmented.
+             */
+            text?: string | null;
+        };
+        /**
          * CreateRecordRequest
          * @description The body for creating a record; the server mints the id and stamps the time.
          */
@@ -83,10 +266,262 @@ export interface components {
              */
             name: string;
         };
+        /**
+         * DigestListItemView
+         * @description A library list item: digest metadata plus its derived counts.
+         */
+        DigestListItemView: {
+            /** @description Derived word and block-kind counts. */
+            counts: components["schemas"]["CountsView"];
+            /** @description The digest's relation-stable metadata. */
+            meta: components["schemas"]["DigestMetaView"];
+        };
+        /**
+         * DigestMetaView
+         * @description The wire projection of a digest's relation-stable metadata.
+         */
+        DigestMetaView: {
+            /**
+             * Content Sha
+             * @description sha256 of the source, for dedup and integrity.
+             */
+            content_sha: string;
+            /**
+             * Created At
+             * @description Canonical ISO-8601 UTC creation timestamp.
+             */
+            created_at: string;
+            /**
+             * Est Reading Ms
+             * @description Reading-time estimate in ms at the baseline wpm.
+             */
+            est_reading_ms: number;
+            /**
+             * Id
+             * @description Opaque api-minted id; the relation-stable key.
+             */
+            id: string;
+            /**
+             * Ir Version
+             * @description The IR schema version the digest was built under.
+             */
+            ir_version: number;
+            /**
+             * Name
+             * @description The agent-given semantic title.
+             */
+            name: string;
+            /**
+             * Owner Id
+             * @description The owning user (single-user 'local' in v1).
+             */
+            owner_id: string;
+            /** @description Where the digest came from and how. */
+            provenance: components["schemas"]["ProvenanceView"];
+            /** @description An optional suggested reading mode, else null. */
+            reading_hint?: components["schemas"]["ReadingHintView"] | null;
+            /**
+             * Slug
+             * @description Memorable two-word slug; unique, 1:1 with the id.
+             */
+            slug: string;
+            /**
+             * Tags
+             * @description Free-form tags for the digest.
+             */
+            tags: string[];
+            /**
+             * Token Count
+             * @description Number of word tokens, derived at ingest.
+             */
+            token_count: number;
+        };
+        /**
+         * DigestView
+         * @description The full read projection of a digest: metadata plus the segment timeline.
+         */
+        DigestView: {
+            /** @description The digest's relation-stable metadata. */
+            meta: components["schemas"]["DigestMetaView"];
+            /**
+             * Segments
+             * @description The ordered reading-timeline segments (prose, pauses, blocks).
+             */
+            segments: (components["schemas"]["ProseSegmentView"] | components["schemas"]["PauseView"] | components["schemas"]["BlockView"])[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * PauseView
+         * @description The wire projection of a pause beat between runs.
+         */
+        PauseView: {
+            /**
+             * Duration Scale
+             * @description Coarse beat weight the reader scales the pause by.
+             * @default 1
+             */
+            duration_scale: number;
+            /**
+             * Reason
+             * @description Why the pause occurs; the reader maps it to a dwell.
+             * @enum {string}
+             */
+            reason: "clause" | "sentence" | "paragraph" | "block_ahead";
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "pause";
+        };
+        /**
+         * PreferencesView
+         * @description The wire projection of a user's reading preferences (every field defaulted).
+         */
+        PreferencesView: {
+            /**
+             * Chunk
+             * @description Words shown per flash.
+             * @default 1
+             */
+            chunk: number;
+            /**
+             * Context
+             * @description The RSVP context-window treatment.
+             * @default ab
+             * @enum {string}
+             */
+            context: "off" | "ab" | "line" | "sentence";
+            /**
+             * Ctx Scale
+             * @description Relative size of dimmed context words.
+             * @default 0.7
+             */
+            ctx_scale: number;
+            /**
+             * Font
+             * @description The reading typeface.
+             * @default atkinson
+             * @enum {string}
+             */
+            font: "atkinson" | "lexend" | "opendyslexic" | "system" | "serif" | "mono";
+            /**
+             * Letter Spacing Em
+             * @description Letter spacing in em.
+             * @default 0.04
+             */
+            letter_spacing_em: number;
+            /**
+             * Mode
+             * @description The reading mode; default guided, last-used persisted.
+             * @default guided
+             * @enum {string}
+             */
+            mode: "rsvp" | "guided" | "fading";
+            /**
+             * Owner Id
+             * @description The owning user (single-user in v1).
+             * @default local
+             */
+            owner_id: string;
+            /**
+             * Ramp
+             * @description Ease into the target speed over the first words.
+             * @default true
+             */
+            ramp: boolean;
+            /**
+             * Size Px
+             * @description Reading word size in pixels.
+             * @default 64
+             */
+            size_px: number;
+            /**
+             * Theme
+             * @description The colour theme.
+             * @default dark
+             * @enum {string}
+             */
+            theme: "dark" | "light" | "sepia";
+            /**
+             * Wpm
+             * @description Reading speed in words per minute.
+             * @default 300
+             */
+            wpm: number;
+        };
+        /**
+         * ProseSegmentView
+         * @description The wire projection of a prose run.
+         */
+        ProseSegmentView: {
+            /**
+             * Role
+             * @description The run's structural role.
+             * @default body
+             * @enum {string}
+             */
+            role: "heading" | "body" | "list_item";
+            /**
+             * Tokens
+             * @description The ordered prose tokens of the run.
+             */
+            tokens: components["schemas"]["TokenView"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "prose";
+        };
+        /**
+         * ProvenanceView
+         * @description The wire projection of a digest's provenance.
+         */
+        ProvenanceView: {
+            /**
+             * Enriched
+             * @description Whether an enrich pass structured the source.
+             * @default false
+             */
+            enriched: boolean;
+            /**
+             * Ingested Via
+             * @description The channel the digest was ingested through.
+             * @default cli
+             * @enum {string}
+             */
+            ingested_via: "cli" | "api" | "mcp";
+            /**
+             * Origin
+             * @description Origin locator (path, url, repo@sha, run-id), else null.
+             */
+            origin?: string | null;
+            /**
+             * Producer
+             * @description The producing agent/model label, else null.
+             */
+            producer?: string | null;
+            /**
+             * Source Kind
+             * @description The kind of source the digest came from.
+             * @enum {string}
+             */
+            source_kind: "agent" | "file" | "cli" | "paste" | "pipe" | "api";
+        };
+        /**
+         * ReadingHintView
+         * @description The wire projection of an optional per-digest reading-mode hint.
+         */
+        ReadingHintView: {
+            /**
+             * Suggested Mode
+             * @description The reading mode this digest suggests.
+             * @enum {string}
+             */
+            suggested_mode: "rsvp" | "guided" | "fading";
         };
         /**
          * RecordView
@@ -108,6 +543,36 @@ export interface components {
              * @description The record's non-blank name.
              */
             name: string;
+        };
+        /**
+         * TokenView
+         * @description The wire projection of a streamed ``Token``.
+         */
+        TokenView: {
+            /**
+             * Emphasis
+             * @description Agent-given emphasis for the token.
+             * @default none
+             * @enum {string}
+             */
+            emphasis: "none" | "strong" | "em" | "code";
+            /**
+             * Hold
+             * @description Optional coarse agent dwell hint (not milliseconds).
+             */
+            hold?: number | null;
+            /**
+             * Kind
+             * @description Token class: a word or a punctuation mark.
+             * @default word
+             * @enum {string}
+             */
+            kind: "word" | "punct";
+            /**
+             * Text
+             * @description The token's text (one word or punctuation mark).
+             */
+            text: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -131,6 +596,90 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_digests_digests_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestListItemView"][];
+                };
+            };
+        };
+    };
+    create_digest_digests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDigestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_digest_digests__slug__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     healthz_healthz_get: {
         parameters: {
             query?: never;
@@ -149,6 +698,70 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    get_preferences_preferences_get: {
+        parameters: {
+            query?: {
+                owner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_preferences_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesView"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

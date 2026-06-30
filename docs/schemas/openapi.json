@@ -1,6 +1,240 @@
 {
   "components": {
     "schemas": {
+      "BlockView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a non-streamed block shown as a static card.",
+        "properties": {
+          "alt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Image alt text for an image block, else null.",
+            "title": "Alt"
+          },
+          "content": {
+            "description": "The raw block content, shown verbatim, never streamed.",
+            "title": "Content",
+            "type": "string"
+          },
+          "kind": {
+            "description": "The block kind, selecting which card the reader renders.",
+            "enum": [
+              "code",
+              "table",
+              "image",
+              "quote",
+              "math",
+              "note"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lang": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code language for a code block, else null.",
+            "title": "Lang"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The prose runway sentence the block follows, else null.",
+            "title": "Lead"
+          },
+          "linear_form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Spoken form for promoted math, else null.",
+            "title": "Linear Form"
+          },
+          "type": {
+            "const": "block",
+            "default": "block",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "content"
+        ],
+        "title": "BlockView",
+        "type": "object"
+      },
+      "CountsView": {
+        "additionalProperties": false,
+        "description": "The derived shape counts shown on a library list item.",
+        "properties": {
+          "blocks_by_kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Count of blocks keyed by block kind.",
+            "title": "Blocks By Kind",
+            "type": "object"
+          },
+          "words": {
+            "description": "Total word tokens across the digest's prose.",
+            "title": "Words",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "words",
+          "blocks_by_kind"
+        ],
+        "title": "CountsView",
+        "type": "object"
+      },
+      "CreateDigestRequest": {
+        "additionalProperties": false,
+        "description": "The create body; exactly one of ``text`` / ``segments`` is required.",
+        "properties": {
+          "enrich": {
+            "default": false,
+            "description": "Request an enrich pass on raw text when available.",
+            "title": "Enrich",
+            "type": "boolean"
+          },
+          "ingested_via": {
+            "default": "cli",
+            "description": "The channel the digest was ingested through.",
+            "enum": [
+              "cli",
+              "api",
+              "mcp"
+            ],
+            "title": "Ingested Via",
+            "type": "string"
+          },
+          "name": {
+            "description": "The agent-given semantic title (non-blank).",
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Origin locator, else null.",
+            "title": "Origin"
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The producing agent/model label.",
+            "title": "Producer"
+          },
+          "segments": {
+            "anyOf": [
+              {
+                "items": {
+                  "discriminator": {
+                    "mapping": {
+                      "block": "#/components/schemas/BlockView",
+                      "pause": "#/components/schemas/PauseView",
+                      "prose": "#/components/schemas/ProseSegmentView"
+                    },
+                    "propertyName": "type"
+                  },
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ProseSegmentView"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PauseView"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BlockView"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pre-segmented IR, if not supplying text.",
+            "title": "Segments"
+          },
+          "source_kind": {
+            "description": "The kind of source the digest came from.",
+            "enum": [
+              "agent",
+              "file",
+              "cli",
+              "paste",
+              "pipe",
+              "api"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "tags": {
+            "description": "Free-form tags for the digest.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Glyde-Markdown source to parse, if not pre-segmented.",
+            "title": "Text"
+          }
+        },
+        "required": [
+          "name",
+          "source_kind"
+        ],
+        "title": "CreateDigestRequest",
+        "type": "object"
+      },
       "CreateRecordRequest": {
         "additionalProperties": false,
         "description": "The body for creating a record; the server mints the id and stamps the time.",
@@ -18,6 +252,157 @@
         "title": "CreateRecordRequest",
         "type": "object"
       },
+      "DigestListItemView": {
+        "additionalProperties": false,
+        "description": "A library list item: digest metadata plus its derived counts.",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/CountsView",
+            "description": "Derived word and block-kind counts."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/DigestMetaView",
+            "description": "The digest's relation-stable metadata."
+          }
+        },
+        "required": [
+          "meta",
+          "counts"
+        ],
+        "title": "DigestListItemView",
+        "type": "object"
+      },
+      "DigestMetaView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a digest's relation-stable metadata.",
+        "properties": {
+          "content_sha": {
+            "description": "sha256 of the source, for dedup and integrity.",
+            "title": "Content Sha",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "Canonical ISO-8601 UTC creation timestamp.",
+            "title": "Created At",
+            "type": "string"
+          },
+          "est_reading_ms": {
+            "description": "Reading-time estimate in ms at the baseline wpm.",
+            "title": "Est Reading Ms",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Opaque api-minted id; the relation-stable key.",
+            "title": "Id",
+            "type": "string"
+          },
+          "ir_version": {
+            "description": "The IR schema version the digest was built under.",
+            "title": "Ir Version",
+            "type": "integer"
+          },
+          "name": {
+            "description": "The agent-given semantic title.",
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "The owning user (single-user 'local' in v1).",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ProvenanceView",
+            "description": "Where the digest came from and how."
+          },
+          "reading_hint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReadingHintView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An optional suggested reading mode, else null."
+          },
+          "slug": {
+            "description": "Memorable two-word slug; unique, 1:1 with the id.",
+            "title": "Slug",
+            "type": "string"
+          },
+          "tags": {
+            "description": "Free-form tags for the digest.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "token_count": {
+            "description": "Number of word tokens, derived at ingest.",
+            "title": "Token Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "provenance",
+          "created_at",
+          "token_count",
+          "est_reading_ms",
+          "content_sha",
+          "ir_version",
+          "owner_id",
+          "tags"
+        ],
+        "title": "DigestMetaView",
+        "type": "object"
+      },
+      "DigestView": {
+        "additionalProperties": false,
+        "description": "The full read projection of a digest: metadata plus the segment timeline.",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/DigestMetaView",
+            "description": "The digest's relation-stable metadata."
+          },
+          "segments": {
+            "description": "The ordered reading-timeline segments (prose, pauses, blocks).",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "block": "#/components/schemas/BlockView",
+                  "pause": "#/components/schemas/PauseView",
+                  "prose": "#/components/schemas/ProseSegmentView"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ProseSegmentView"
+                },
+                {
+                  "$ref": "#/components/schemas/PauseView"
+                },
+                {
+                  "$ref": "#/components/schemas/BlockView"
+                }
+              ]
+            },
+            "title": "Segments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "meta",
+          "segments"
+        ],
+        "title": "DigestView",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -29,6 +414,260 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "PauseView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a pause beat between runs.",
+        "properties": {
+          "duration_scale": {
+            "default": 1.0,
+            "description": "Coarse beat weight the reader scales the pause by.",
+            "title": "Duration Scale",
+            "type": "number"
+          },
+          "reason": {
+            "description": "Why the pause occurs; the reader maps it to a dwell.",
+            "enum": [
+              "clause",
+              "sentence",
+              "paragraph",
+              "block_ahead"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "type": {
+            "const": "pause",
+            "default": "pause",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "PauseView",
+        "type": "object"
+      },
+      "PreferencesView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a user's reading preferences (every field defaulted).",
+        "properties": {
+          "chunk": {
+            "default": 1,
+            "description": "Words shown per flash.",
+            "title": "Chunk",
+            "type": "integer"
+          },
+          "context": {
+            "default": "ab",
+            "description": "The RSVP context-window treatment.",
+            "enum": [
+              "off",
+              "ab",
+              "line",
+              "sentence"
+            ],
+            "title": "Context",
+            "type": "string"
+          },
+          "ctx_scale": {
+            "default": 0.7,
+            "description": "Relative size of dimmed context words.",
+            "title": "Ctx Scale",
+            "type": "number"
+          },
+          "font": {
+            "default": "atkinson",
+            "description": "The reading typeface.",
+            "enum": [
+              "atkinson",
+              "lexend",
+              "opendyslexic",
+              "system",
+              "serif",
+              "mono"
+            ],
+            "title": "Font",
+            "type": "string"
+          },
+          "letter_spacing_em": {
+            "default": 0.04,
+            "description": "Letter spacing in em.",
+            "title": "Letter Spacing Em",
+            "type": "number"
+          },
+          "mode": {
+            "default": "guided",
+            "description": "The reading mode; default guided, last-used persisted.",
+            "enum": [
+              "rsvp",
+              "guided",
+              "fading"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "owner_id": {
+            "default": "local",
+            "description": "The owning user (single-user in v1).",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "ramp": {
+            "default": true,
+            "description": "Ease into the target speed over the first words.",
+            "title": "Ramp",
+            "type": "boolean"
+          },
+          "size_px": {
+            "default": 64,
+            "description": "Reading word size in pixels.",
+            "title": "Size Px",
+            "type": "integer"
+          },
+          "theme": {
+            "default": "dark",
+            "description": "The colour theme.",
+            "enum": [
+              "dark",
+              "light",
+              "sepia"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "wpm": {
+            "default": 300,
+            "description": "Reading speed in words per minute.",
+            "title": "Wpm",
+            "type": "integer"
+          }
+        },
+        "title": "PreferencesView",
+        "type": "object"
+      },
+      "ProseSegmentView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a prose run.",
+        "properties": {
+          "role": {
+            "default": "body",
+            "description": "The run's structural role.",
+            "enum": [
+              "heading",
+              "body",
+              "list_item"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tokens": {
+            "description": "The ordered prose tokens of the run.",
+            "items": {
+              "$ref": "#/components/schemas/TokenView"
+            },
+            "title": "Tokens",
+            "type": "array"
+          },
+          "type": {
+            "const": "prose",
+            "default": "prose",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tokens"
+        ],
+        "title": "ProseSegmentView",
+        "type": "object"
+      },
+      "ProvenanceView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a digest's provenance.",
+        "properties": {
+          "enriched": {
+            "default": false,
+            "description": "Whether an enrich pass structured the source.",
+            "title": "Enriched",
+            "type": "boolean"
+          },
+          "ingested_via": {
+            "default": "cli",
+            "description": "The channel the digest was ingested through.",
+            "enum": [
+              "cli",
+              "api",
+              "mcp"
+            ],
+            "title": "Ingested Via",
+            "type": "string"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Origin locator (path, url, repo@sha, run-id), else null.",
+            "title": "Origin"
+          },
+          "producer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The producing agent/model label, else null.",
+            "title": "Producer"
+          },
+          "source_kind": {
+            "description": "The kind of source the digest came from.",
+            "enum": [
+              "agent",
+              "file",
+              "cli",
+              "paste",
+              "pipe",
+              "api"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_kind"
+        ],
+        "title": "ProvenanceView",
+        "type": "object"
+      },
+      "ReadingHintView": {
+        "additionalProperties": false,
+        "description": "The wire projection of an optional per-digest reading-mode hint.",
+        "properties": {
+          "suggested_mode": {
+            "description": "The reading mode this digest suggests.",
+            "enum": [
+              "rsvp",
+              "guided",
+              "fading"
+            ],
+            "title": "Suggested Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggested_mode"
+        ],
+        "title": "ReadingHintView",
         "type": "object"
       },
       "RecordView": {
@@ -57,6 +696,56 @@
           "created_at"
         ],
         "title": "RecordView",
+        "type": "object"
+      },
+      "TokenView": {
+        "additionalProperties": false,
+        "description": "The wire projection of a streamed ``Token``.",
+        "properties": {
+          "emphasis": {
+            "default": "none",
+            "description": "Agent-given emphasis for the token.",
+            "enum": [
+              "none",
+              "strong",
+              "em",
+              "code"
+            ],
+            "title": "Emphasis",
+            "type": "string"
+          },
+          "hold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional coarse agent dwell hint (not milliseconds).",
+            "title": "Hold"
+          },
+          "kind": {
+            "default": "word",
+            "description": "Token class: a word or a punctuation mark.",
+            "enum": [
+              "word",
+              "punct"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "text": {
+            "description": "The token's text (one word or punctuation mark).",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TokenView",
         "type": "object"
       },
       "ValidationError": {
@@ -108,6 +797,115 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/digests": {
+      "get": {
+        "description": "Every digest newest-first, each with metadata and derived shape counts.",
+        "operationId": "list_digests_digests_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DigestListItemView"
+                  },
+                  "title": "Response List Digests Digests Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List digests",
+        "tags": [
+          "digests"
+        ]
+      },
+      "post": {
+        "description": "Parse/segment the input, mint id + slug, stamp time, persist, and return the IR.",
+        "operationId": "create_digest_digests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDigestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create a digest",
+        "tags": [
+          "digests"
+        ]
+      }
+    },
+    "/digests/{slug}": {
+      "get": {
+        "description": "Return the full IR for the digest with the given slug, or a 404 rejection.",
+        "operationId": "get_digest_digests__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DigestView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Fetch a digest",
+        "tags": [
+          "digests"
+        ]
+      }
+    },
     "/healthz": {
       "get": {
         "description": "Return {status: ok} when the process is serving. No storage access.",
@@ -131,6 +929,90 @@
         "summary": "Liveness probe",
         "tags": [
           "meta"
+        ]
+      }
+    },
+    "/preferences": {
+      "get": {
+        "description": "Return the stored reading preferences for an owner, or the defaults.",
+        "operationId": "get_preferences_preferences_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "default": "local",
+              "title": "Owner Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get preferences",
+        "tags": [
+          "preferences"
+        ]
+      },
+      "put": {
+        "description": "Full-replace the owner's reading preferences (upsert) and return them.",
+        "operationId": "put_preferences_preferences_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace preferences",
+        "tags": [
+          "preferences"
         ]
       }
     },

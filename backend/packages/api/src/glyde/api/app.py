@@ -1,9 +1,9 @@
 """The FastAPI application factory: routers, lifespan, and the error handler.
 
 Key callables:
-- ``create_app`` — build the app: mount every router, register the ONE
-  store-error exception handler shared by all routes, and wire the lifespan that
-  configures logging and runs migrations at startup.
+- ``create_app`` — build the app: mount every router (including the route-less
+  ``lan`` scaffold), register the ONE store-error exception handler shared by all
+  routes, and wire the lifespan that configures logging and runs migrations.
 
 What this module does NOT do:
 - No per-route error handling — the single registered handler turns a
@@ -13,15 +13,11 @@ What this module does NOT do:
 
 Invariants:
 - The store-error translation is registered ONCE; routes never duplicate it.
-- The lifespan configures logging and runs ``bootstrap_migrations`` before the
-  app serves, so every request sees a current schema. ASGITransport-based tests
-  do NOT run the lifespan — their fixtures migrate the tmp database themselves.
-- Same-origin serving: the API is reached under ``/api`` through a stripped-prefix
-  proxy (the SvelteKit ``hooks.server.ts`` front door + the dev Vite proxy).
-  ``root_path`` makes ``/api/docs`` resolve ``/api/openapi.json``; the explicit
-  ``servers`` is what lands in the in-process ``create_app().openapi()`` the export
-  CLI and the drift test read. Path keys stay bare — the proxy strips ``/api``. The
-  app ships no CORS: every caller is same-origin.
+- The lifespan runs ``bootstrap_migrations`` before the app serves. ASGITransport
+  tests do NOT run the lifespan — their fixtures migrate the tmp database.
+- Same-origin serving under ``/api`` (the SvelteKit proxy strips the prefix);
+  ``root_path`` + explicit ``servers`` keep the committed OpenAPI prefix-aware.
+  Registering the empty ``lan`` router is OpenAPI-neutral.
 """
 
 from __future__ import annotations
@@ -35,7 +31,13 @@ from fastapi.responses import JSONResponse
 
 from glyde.api.deps import bootstrap_migrations
 from glyde.api.logging_config import setup_logging
-from glyde.api.routes import meta_router, records_router
+from glyde.api.routes import (
+    digests_router,
+    lan_router,
+    meta_router,
+    preferences_router,
+    records_router,
+)
 from glyde.api.schemas import Rejection
 from glyde.api.settings import get_settings
 from glyde.core.ports import StoreError
@@ -49,6 +51,8 @@ logger = logging.getLogger(__name__)
 # (a conflict the client can resolve) rather than a 500 — a known rejection is
 # never a server fault.
 _STATUS_BY_CODE: dict[str, int] = {
+    "unknown_digest": 404,
+    "duplicate_slug": 409,
     "unknown_record": 404,
     "duplicate_record": 409,
 }
@@ -75,10 +79,6 @@ def _store_error_response(exc: StoreError) -> JSONResponse:
 def create_app() -> FastAPI:
     """Build the Glyde FastAPI app with routers, lifespan, and the error handler.
 
-    Mounts the read/write routers, registers the single store-error exception
-    handler (so every route shares one translation), and wires the
-    logging-and-migration lifespan.
-
     Returns:
         The configured ``FastAPI`` application.
     """
@@ -96,5 +96,8 @@ def create_app() -> FastAPI:
         return _store_error_response(exc)
 
     app.include_router(meta_router)
+    app.include_router(digests_router)
+    app.include_router(preferences_router)
+    app.include_router(lan_router)
     app.include_router(records_router)
     return app

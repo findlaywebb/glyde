@@ -1,16 +1,10 @@
 """Fixtures for the api tests: ASGITransport clients over both store backings.
 
 Time is frozen through the single ``get_now`` override so every route stamps the
-same canonical instant — the determinism the no-mocking rule needs. Two client
-fixtures share that shape:
-
-- ``memory_client`` overrides ``get_store`` with the verified in-memory fake.
-- ``sqlite_client`` migrates a ``tmp_path`` database itself (ASGITransport never
-  runs the app lifespan, so nothing else migrates) and overrides ``get_settings``
-  to point ``get_store`` at it, clearing the settings cache in teardown.
-
-``client`` is parametrised over both so a test marked with it runs end to end on
-each backing.
+same canonical instant — the determinism the no-mocking rule needs. The digest
+clients override the digest store (or point a real migrated tmp db at it); the
+record clients are the transitional twins. Each ``*_client`` is parametrised over
+the in-memory fake and the real SQLite store, so a test runs on both backings.
 """
 
 from __future__ import annotations
@@ -21,11 +15,11 @@ import httpx
 import pytest
 from httpx import ASGITransport
 from support.factories import ts
-from support.memory_store import InMemoryRecordStore
+from support.memory_store import InMemoryDigestStore, InMemoryRecordStore
 
 from glyde.adapters.sqlite import apply_migrations
 from glyde.api.app import create_app
-from glyde.api.deps import get_now, get_store
+from glyde.api.deps import get_digest_store, get_now, get_store
 from glyde.api.settings import Settings, get_settings
 
 if TYPE_CHECKING:
@@ -45,8 +39,32 @@ async def _serve(app: object) -> AsyncIterator[httpx.AsyncClient]:
         yield client
 
 
-def _memory_app() -> object:
-    """Build an app over a single in-memory store double with frozen time."""
+def _sqlite_settings(db_path: Path) -> Settings:
+    """Migrate a fresh tmp db and return settings pointing at it (cache cleared)."""
+    apply_migrations(db_path, backup_stamp="00000000T000000Z")
+    get_settings.cache_clear()
+    return Settings(db_path=db_path)
+
+
+def _memory_digest_app() -> object:
+    """Build an app over a single in-memory digest store with frozen time."""
+    store = InMemoryDigestStore()
+    app = create_app()
+    app.dependency_overrides[get_digest_store] = lambda: store
+    app.dependency_overrides[get_now] = _frozen_now
+    return app
+
+
+def _sqlite_digest_app(db_path: Path) -> object:
+    """Build an app over a real migrated, connection-per-request sqlite db."""
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: _sqlite_settings(db_path)
+    app.dependency_overrides[get_now] = _frozen_now
+    return app
+
+
+def _memory_record_app() -> object:
+    """Build an app over a single in-memory record store with frozen time (transitional)."""
     store = InMemoryRecordStore()
     app = create_app()
     app.dependency_overrides[get_store] = lambda: store
@@ -54,34 +72,26 @@ def _memory_app() -> object:
     return app
 
 
-def _sqlite_app(db_path: Path) -> object:
-    """Build an app over a real migrated, connection-per-request sqlite db.
-
-    Migrates ``db_path`` first (the lifespan never runs under ASGITransport) and
-    uses the real connection-per-request ``get_store`` via a ``get_settings``
-    override, so the leg exercises the sqlite adapter end to end. Time is frozen.
-    """
-    apply_migrations(db_path, backup_stamp="00000000T000000Z")
-    get_settings.cache_clear()
-    settings = Settings(db_path=db_path)
+def _sqlite_record_app(db_path: Path) -> object:
+    """Build an app over a real migrated sqlite db for records (transitional)."""
     app = create_app()
-    app.dependency_overrides[get_settings] = lambda: settings
+    app.dependency_overrides[get_settings] = lambda: _sqlite_settings(db_path)
     app.dependency_overrides[get_now] = _frozen_now
     return app
 
 
-@pytest.fixture
-async def memory_client() -> AsyncIterator[httpx.AsyncClient]:
-    """An ASGITransport client over the in-memory store with frozen time."""
-    async for client in _serve(_memory_app()):
-        yield client
-
-
-@pytest.fixture
-async def sqlite_client(tmp_path: Path) -> AsyncIterator[httpx.AsyncClient]:
-    """An ASGITransport client over a real migrated sqlite db with frozen time."""
-    async for client in _serve(_sqlite_app(tmp_path / "glyde.db")):
-        yield client
+@pytest.fixture(params=["memory", "sqlite"])
+async def digest_client(
+    request: pytest.FixtureRequest, tmp_path: Path
+) -> AsyncIterator[httpx.AsyncClient]:
+    """A digest client parametrised over both store backings (memory, then sqlite)."""
+    app = (
+        _memory_digest_app()
+        if request.param == "memory"
+        else _sqlite_digest_app(tmp_path / "glyde.db")
+    )
+    async for served in _serve(app):
+        yield served
     get_settings.cache_clear()
 
 
@@ -89,8 +99,12 @@ async def sqlite_client(tmp_path: Path) -> AsyncIterator[httpx.AsyncClient]:
 async def client(
     request: pytest.FixtureRequest, tmp_path: Path
 ) -> AsyncIterator[httpx.AsyncClient]:
-    """A client parametrised over both store backings (memory, then sqlite)."""
-    app = _memory_app() if request.param == "memory" else _sqlite_app(tmp_path / "glyde.db")
+    """A record client parametrised over both store backings (transitional)."""
+    app = (
+        _memory_record_app()
+        if request.param == "memory"
+        else _sqlite_record_app(tmp_path / "glyde.db")
+    )
     async for served in _serve(app):
         yield served
     get_settings.cache_clear()
