@@ -29,7 +29,7 @@ class Preferences(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     owner_id: str = "local"
-    mode: Literal["rsvp", "guided", "fading"] = "guided"
+    mode: Literal["rsvp", "guided", "fading", "focus"] = "guided"
     wpm: int = 300
     context: Literal["off", "ab", "line", "sentence"] = "ab"
     ctx_scale: float = 0.7

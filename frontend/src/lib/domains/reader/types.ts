@@ -12,6 +12,7 @@
  * the pure pacing math lives in `cadence.ts`. Consumers import the factory via `./index`.
  */
 import type { components } from '$lib/api/schema';
+import type { PrefsStore } from '$lib/domains/preferences/prefs.svelte';
 
 // --- Wire types, aliased off the typed seam (F0 emits NAMED members; do not hand-alias) ---
 
@@ -21,10 +22,17 @@ export type PauseView = components['schemas']['PauseView'];
 export type BlockView = components['schemas']['BlockView'];
 export type PreferencesView = components['schemas']['PreferencesView'];
 
+// Re-export PrefsStore so SettingsPanelProps and other reader units import
+// through this contract file rather than crossing into the preferences domain directly.
+export type { PrefsStore };
+
 /** The reading-timeline element union, discriminated on `type` (mirrors the wire `SegmentView`). */
 export type SegmentView = ProseSegmentView | PauseView | BlockView;
 
-/** The reading mode: "rsvp" | "guided" | "fading". */
+/**
+ * The reading mode: "rsvp" | "guided" | "fading" | "focus".
+ * "focus" routes to the Focus view (reuses ModeProps; no new view-prop type needed).
+ */
 export type Mode = PreferencesView['mode'];
 
 // --- The engine's reactive snapshot ---
@@ -185,4 +193,21 @@ export interface ProgressProps {
 	blockNotches: number[];
 	/** → `engine.scrubTo()`. */
 	onScrub: (wordIndex: number) => void;
+}
+
+/**
+ * Settings panel (R-CHROME). Props-down / callback-up: the panel reads and writes
+ * preferences through `store`, never binding directly to its internals. Both U2
+ * (the settings panel unit) and the integrator (R-STAGE) code against this shape.
+ *
+ * `$bindable` is deliberately absent — the panel does not co-own the store; it
+ * calls `store.set(patch)` and the store drives reactivity.
+ */
+export interface SettingsPanelProps {
+	/** The reactive preferences store (PREF's `createPrefsStore`). */
+	store: PrefsStore;
+	/** Whether the settings panel is open. */
+	open: boolean;
+	/** Called when the panel requests to be closed (e.g. Escape or overlay tap). */
+	onClose: () => void;
 }

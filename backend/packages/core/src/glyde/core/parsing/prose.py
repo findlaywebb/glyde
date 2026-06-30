@@ -1,4 +1,4 @@
-"""Prose tokenisation and run splitting for the Glyde-Markdown parser.
+"""Prose tokenization and run splitting for the Glyde-Markdown parser.
 
 Key callables:
 - ``split_runs`` — split one prose line into ``(run_text, pause_reason)`` pairs
@@ -12,9 +12,14 @@ What this module does NOT do:
 
 Invariants:
 - Emphasis does not nest; an unmatched or inner delimiter is literal text.
-- A trailing terminator is consumed to set the FOLLOWING pause's reason — it is
-  never emitted as a token. A terminator not followed by whitespace or the line
-  end (e.g. the dot in ``3.14``) is ordinary text, not a split point.
+- A trailing terminator is retained in the run's last word token (e.g.
+  ``"world."`` or ``"done,"``), so the visible character stays on the rendered
+  word. It still sets the FOLLOWING pause's reason. A terminator not followed
+  by whitespace or the line end (e.g. the dot in ``3.14``) is ordinary text,
+  not a split point.
+- When a terminator immediately follows an emphasis span (e.g. ``==done==.``),
+  ``tokenize_run`` merges it onto the preceding word token so no bare
+  single-punctuation token is emitted.
 - Tokens are whitespace-free and non-empty (the text is split on whitespace).
 """
 
@@ -30,6 +35,7 @@ if TYPE_CHECKING:
 
 _CLAUSE = ",;:"
 _SENTENCE = ".!?…"
+_TERMINATORS: frozenset[str] = frozenset(_CLAUSE + _SENTENCE)
 _SPAN = re.compile(r"==(.+?)==|`(.+?)`|\*(.+?)\*|_(.+?)_")
 _EMPHASIS: dict[int, Literal["strong", "code", "em"]] = {1: "strong", 2: "code", 3: "em", 4: "em"}
 
@@ -65,6 +71,8 @@ def split_runs(line: str) -> list[tuple[str, Literal["clause", "sentence"] | Non
         char = line[index]
         reason = _reason(char)
         if reason is not None and (index + 1 >= length or line[index + 1].isspace()):
+            if buffer:  # only retain when there is a word to attach it to
+                buffer.append(char)
             text = "".join(buffer).strip()
             if text:
                 runs.append((text, reason))
@@ -88,14 +96,18 @@ def _words(text: str, emphasis: Literal["none", "strong", "em", "code"]) -> Iter
 
 
 def tokenize_run(text: str) -> list[Token]:
-    """Tokenise a run's text into ``Token`` s, applying inline emphasis spans.
+    """Tokenize a run's text into ``Token`` s, applying inline emphasis spans.
 
-    Text outside any emphasis span tokenises to plain ``word`` tokens; the text
+    Text outside any emphasis span tokenizes to plain ``word`` tokens; the text
     captured inside ``==…==`` / `` `…` `` / ``*…*`` / ``_…_`` takes that span's
     emphasis. Spans do not nest; an unmatched delimiter is literal text.
 
+    When a terminator immediately follows a span with no intervening whitespace
+    (e.g. ``==done==.``), the terminator is merged onto the span's last token so
+    no bare single-punctuation token is emitted.
+
     Args:
-        text: One run's text (no leading/trailing terminator).
+        text: One run's text (may carry a trailing retained terminator).
 
     Returns:
         The ordered tokens for the run.
@@ -108,4 +120,10 @@ def tokenize_run(text: str) -> list[Token]:
         tokens.extend(_words(match.group(group), _EMPHASIS[group]))
         position = match.end()
     tokens.extend(_words(text[position:], "none"))
+    # Merge a trailing bare terminator onto the preceding token so an emphasis
+    # span like ==done==. never emits a standalone punctuation token.
+    if len(tokens) >= 2 and tokens[-1].text in _TERMINATORS:
+        tail = tokens.pop()
+        prev = tokens[-1]
+        tokens[-1] = Token(text=prev.text + tail.text, emphasis=prev.emphasis)
     return tokens

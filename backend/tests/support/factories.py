@@ -88,7 +88,7 @@ def digest(
 
 
 def preferences(
-    *, owner_id: str = "local", mode: Literal["rsvp", "guided", "fading"] = "guided"
+    *, owner_id: str = "local", mode: Literal["rsvp", "guided", "fading", "focus"] = "guided"
 ) -> Preferences:
     """Build a ``Preferences`` with overridable owner and mode."""
     return Preferences(owner_id=owner_id, mode=mode)
