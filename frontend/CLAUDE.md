@@ -44,6 +44,52 @@ not a nice-to-have.
 - Run **both `svelte-check` (markup, a11y, CSS) and `tsc --noEmit`** — `tsc` does not check
   Svelte markup. Never `!` an indexed access to silence `noUncheckedIndexedAccess`.
 
+## Svelte MCP + assay patterns
+
+The reader / library / settings work mines `assay` (same stack). The single index is
+`docs/research/assay-adoption.md` (it points to `assay-frontend.md`, `assay-mobile-lan.md`,
+`svelte-mcp.md`) — read the directive there **before** implementing.
+
+**Svelte MCP loop — run it before generating component code.** The official `@sveltejs/mcp` server
+exposes `list-sections` → `get-documentation` → `svelte-autofixer` → `playground-link`:
+
+1. **Discover** — call `list-sections` first (every svelte.dev / SvelteKit doc section).
+2. **Fetch** — `get-documentation` for all relevant sections (current Svelte 5 / runes docs — the
+   authority over training memory).
+3. **Generate** the component.
+4. **Autofix** — loop `svelte-autofixer` until clean **before** showing or committing; it mechanically
+   catches the runes anti-patterns (`$:`, `export let`, `createEventDispatcher`, derived-not-effect)
+   this file states in prose.
+
+If the Svelte MCP tools are not in your context (Glyde has no `.mcp.json` yet — see
+`docs/research/svelte-mcp.md` for the stdio entry), fall back to **context7** for current
+Svelte/SvelteKit docs and run **`svelte-check`** as the runes-idiom gate. In all cases follow
+`docs/research/assay-adoption.md`.
+
+**Assay directives (each points back to the brief):**
+
+- **Reader factory** (`assay-adoption.md` §1) — model the RSVP/sweep reader as a `.svelte.ts`
+  state-machine factory: `$state` getters + imperative methods, an **injected clock + transport** (so it
+  is headless-constructible and steppable in a node test), and **ZERO `$effect` in the factory**. Keep
+  the cadence math (WPM→ms, ORP/pivot, pause-at-punctuation) in a **pure `.ts`**, only the rAF wiring in
+  the `.svelte.ts` shell. Animate compositor-only `transform`/`opacity`; **gate all motion on
+  `prefers-reduced-motion`** (read once at bind). `bindSwipe` (axis-lock past 8px) for tap-to-pause /
+  swipe-to-seek. The a11y spine: `aria-live` announcer, roving focus on advance, focus-scoped keydispatch
+  with `preventDefault`.
+- **Typed seam** (`assay-adoption.md` §2) — committed `openapi-typescript` `schema.d.ts` + **dual** drift
+  gates (`check:api-drift` AND the backend openapi-matches-live test; neither alone proves freshness),
+  `openapi-fetch` module client at `/api`, reads **inside `load`** with the per-request `fetch` + absolute
+  `${url.origin}/api` base, branch `{ data, error }` (a 200 is not success). `ui/` takes **primitive
+  props, never the wire/Digest type**.
+- **Mobile-LAN / PWA** (`assay-adoption.md` §3) — one node front door bound `0.0.0.0` + FastAPI on
+  loopback behind the `/api` reverse-proxy in `hooks.server.ts` (CORS structurally absent); env prefix
+  `GLYDE_`, proxy target `GLYDE_API_ORIGIN`; `lan.py` QR with `ORIGIN` computed **once** (adapter
+  `ORIGIN` = QR payload = CSRF compare value); the CSRF origin assertion at the node door;
+  **HTTPS-via-mkcert** for the secure context; `sw.js` with `/api` passthrough as the **first** statement,
+  extended to cache the Digest IR for offline reading; the iOS gotchas (manifest standalone/portrait/dark,
+  viewport `interactive-widget=resizes-content`, inputs ≥16px, touch targets ≥44px,
+  `overscroll-behavior-y: contain`).
+
 ## Architecture boundaries (the frontend mirror of the backend's import-linter)
 
 `eslint-plugin-boundaries` (authoritative element-edge guard; resolves `$lib`) +
