@@ -8,7 +8,9 @@ the api boundary.
 Key types:
 - ``StoreError`` — the base; ``except StoreError`` catches every store-raised
   rejection, and ``error.code`` is always defined.
-- One subclass per rejection condition, each with a distinct ``code``.
+- ``UnknownDigestError`` / ``DuplicateSlugError`` — the digest store rejections.
+- ``UnknownRecordError`` / ``DuplicateRecordError`` — the template example
+  store's rejections, retained while the records vertical coexists with the IR.
 
 What this module does NOT do:
 - No I/O, no mapping to HTTP status — that translation is the api layer's job.
@@ -34,19 +36,33 @@ class StoreError(Exception):
     code: ClassVar[str] = "store_error"
 
 
-class UnknownRecordError(StoreError):
-    """A record id is absent from the store.
+class UnknownDigestError(StoreError):
+    """A digest slug is absent from the store.
 
-    Raised by reads or writes targeting an id the store has never persisted.
+    Raised by ``get_by_slug`` for a slug the store has never persisted (it
+    raises, never returns ``None``).
     """
+
+    code: ClassVar[str] = "unknown_digest"
+
+
+class DuplicateSlugError(StoreError):
+    """A digest slug already exists.
+
+    Raised by ``add`` when its ``digest.meta.slug`` is already present (the slug
+    is the secondary unique key, 1:1 with the id).
+    """
+
+    code: ClassVar[str] = "duplicate_slug"
+
+
+class UnknownRecordError(StoreError):
+    """A record id is absent from the example store (transitional)."""
 
     code: ClassVar[str] = "unknown_record"
 
 
 class DuplicateRecordError(StoreError):
-    """A record id already exists.
-
-    Raised by ``add`` when its ``record.id`` is already present.
-    """
+    """A record id already exists in the example store (transitional)."""
 
     code: ClassVar[str] = "duplicate_record"
