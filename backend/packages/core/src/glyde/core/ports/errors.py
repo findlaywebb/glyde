@@ -1,4 +1,4 @@
-"""Error taxonomy for the store ports.
+"""Error taxonomy for the digest store port.
 
 Every store-rejection condition is a typed exception carrying a machine-readable
 ``code`` (a ``ClassVar[str]``). The api layer maps these codes onto its HTTP
@@ -9,8 +9,6 @@ Key types:
 - ``StoreError`` — the base; ``except StoreError`` catches every store-raised
   rejection, and ``error.code`` is always defined.
 - ``UnknownDigestError`` / ``DuplicateSlugError`` — the digest store rejections.
-- ``UnknownRecordError`` / ``DuplicateRecordError`` — the template example
-  store's rejections, retained while the records vertical coexists with the IR.
 
 What this module does NOT do:
 - No I/O, no mapping to HTTP status — that translation is the api layer's job.
@@ -54,15 +52,3 @@ class DuplicateSlugError(StoreError):
     """
 
     code: ClassVar[str] = "duplicate_slug"
-
-
-class UnknownRecordError(StoreError):
-    """A record id is absent from the example store (transitional)."""
-
-    code: ClassVar[str] = "unknown_record"
-
-
-class DuplicateRecordError(StoreError):
-    """A record id already exists in the example store (transitional)."""
-
-    code: ClassVar[str] = "duplicate_record"

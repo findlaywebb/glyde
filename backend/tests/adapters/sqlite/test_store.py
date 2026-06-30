@@ -1,4 +1,4 @@
-"""Run the store contracts against the real SQLite stores + full-fidelity round-trips."""
+"""Run the digest store contract against the real SQLite store + a full round-trip."""
 
 from collections.abc import Iterator
 from contextlib import closing
@@ -6,15 +6,10 @@ from typing import override
 
 import pytest
 from support.factories import block, pause, prose, provenance, ts
-from support.store_contract import DigestStoreContract, RecordStoreContract
+from support.store_contract import DigestStoreContract
 
-from glyde.adapters.sqlite import (
-    SqliteDigestStore,
-    SqliteRecordStore,
-    apply_migrations,
-    connect,
-)
-from glyde.core import Digest, DigestMeta, DigestStore, ReadingHint, RecordStore
+from glyde.adapters.sqlite import SqliteDigestStore, apply_migrations, connect
+from glyde.core import Digest, DigestMeta, DigestStore, ReadingHint
 
 
 class _MigratedDb:
@@ -71,12 +66,3 @@ class TestSqliteDigestStore(_MigratedDb, DigestStoreContract):
         )
         store.add(rich)
         assert store.get_by_slug("rich-otter") == rich
-
-
-class TestSqliteRecordStore(_MigratedDb, RecordStoreContract):
-    """The SQLite record store must satisfy the contract end to end (transitional)."""
-
-    @override
-    def make_store(self) -> RecordStore:
-        """Return a record store over the migrated tmp database."""
-        return SqliteRecordStore(self._conn)

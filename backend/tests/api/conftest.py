@@ -1,10 +1,9 @@
 """Fixtures for the api tests: ASGITransport clients over both store backings.
 
 Time is frozen through the single ``get_now`` override so every route stamps the
-same canonical instant — the determinism the no-mocking rule needs. The digest
-clients override the digest store (or point a real migrated tmp db at it); the
-record clients are the transitional twins. Each ``*_client`` is parametrised over
-the in-memory fake and the real SQLite store, so a test runs on both backings.
+same canonical instant — the determinism the no-mocking rule needs. The
+``digest_client`` fixture is parametrised over the in-memory fake and the real
+SQLite store (which it migrates into a tmp db), so a test runs on both backings.
 """
 
 from __future__ import annotations
@@ -15,11 +14,11 @@ import httpx
 import pytest
 from httpx import ASGITransport
 from support.factories import ts
-from support.memory_store import InMemoryDigestStore, InMemoryRecordStore
+from support.memory_store import InMemoryDigestStore
 
 from glyde.adapters.sqlite import apply_migrations
 from glyde.api.app import create_app
-from glyde.api.deps import get_digest_store, get_now, get_store
+from glyde.api.deps import get_digest_store, get_now
 from glyde.api.settings import Settings, get_settings
 
 if TYPE_CHECKING:
@@ -63,23 +62,6 @@ def _sqlite_digest_app(db_path: Path) -> object:
     return app
 
 
-def _memory_record_app() -> object:
-    """Build an app over a single in-memory record store with frozen time (transitional)."""
-    store = InMemoryRecordStore()
-    app = create_app()
-    app.dependency_overrides[get_store] = lambda: store
-    app.dependency_overrides[get_now] = _frozen_now
-    return app
-
-
-def _sqlite_record_app(db_path: Path) -> object:
-    """Build an app over a real migrated sqlite db for records (transitional)."""
-    app = create_app()
-    app.dependency_overrides[get_settings] = lambda: _sqlite_settings(db_path)
-    app.dependency_overrides[get_now] = _frozen_now
-    return app
-
-
 @pytest.fixture(params=["memory", "sqlite"])
 async def digest_client(
     request: pytest.FixtureRequest, tmp_path: Path
@@ -89,21 +71,6 @@ async def digest_client(
         _memory_digest_app()
         if request.param == "memory"
         else _sqlite_digest_app(tmp_path / "glyde.db")
-    )
-    async for served in _serve(app):
-        yield served
-    get_settings.cache_clear()
-
-
-@pytest.fixture(params=["memory", "sqlite"])
-async def client(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> AsyncIterator[httpx.AsyncClient]:
-    """A record client parametrised over both store backings (transitional)."""
-    app = (
-        _memory_record_app()
-        if request.param == "memory"
-        else _sqlite_record_app(tmp_path / "glyde.db")
     )
     async for served in _serve(app):
         yield served

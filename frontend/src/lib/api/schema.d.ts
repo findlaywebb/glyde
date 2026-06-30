@@ -92,50 +92,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List records
-         * @description Every record, ordered by creation time ascending.
-         */
-        get: operations["list_records_records_get"];
-        put?: never;
-        /**
-         * Create a record
-         * @description Mint an id, stamp the time server-side, persist, and return the record.
-         */
-        post: operations["create_record_records_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/records/{record_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Fetch a record
-         * @description Return the record with the given id, or a 404 rejection if absent.
-         */
-        get: operations["get_record_records__record_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -254,17 +210,6 @@ export interface components {
              * @description Glyde-Markdown source to parse, if not pre-segmented.
              */
             text?: string | null;
-        };
-        /**
-         * CreateRecordRequest
-         * @description The body for creating a record; the server mints the id and stamps the time.
-         */
-        CreateRecordRequest: {
-            /**
-             * Name
-             * @description Human-meaningful, non-blank name.
-             */
-            name: string;
         };
         /**
          * DigestListItemView
@@ -524,27 +469,6 @@ export interface components {
             suggested_mode: "rsvp" | "guided" | "fading";
         };
         /**
-         * RecordView
-         * @description The read-surface projection of a domain ``Record``.
-         */
-        RecordView: {
-            /**
-             * Created At
-             * @description Canonical ISO-8601 UTC creation timestamp.
-             */
-            created_at: string;
-            /**
-             * Id
-             * @description Opaque unique id.
-             */
-            id: string;
-            /**
-             * Name
-             * @description The record's non-blank name.
-             */
-            name: string;
-        };
-        /**
          * TokenView
          * @description The wire projection of a streamed ``Token``.
          */
@@ -753,90 +677,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PreferencesView"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_records_records_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordView"][];
-                };
-            };
-        };
-    };
-    create_record_records_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateRecordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordView"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_record_records__record_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                record_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RecordView"];
                 };
             };
             /** @description Validation Error */
