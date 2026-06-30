@@ -12,7 +12,6 @@ Key types:
   ``DigestListItemView`` (with ``CountsView``), ``DigestMetaView``,
   ``ProvenanceView``, ``ReadingHintView``, and ``CreateDigestRequest``.
 - ``PreferencesView`` — the per-user reading config (every field defaulted).
-- ``RecordView`` / ``CreateRecordRequest`` — the template example (transitional).
 
 Invariants:
 - Every public field carries a ``description`` (bar the ``type`` discriminator),
@@ -29,7 +28,6 @@ from glyde.api.schemas.digests import (
     ReadingHintView,
 )
 from glyde.api.schemas.preferences import PreferencesView
-from glyde.api.schemas.records import CreateRecordRequest, RecordView
 from glyde.api.schemas.results import Rejection
 from glyde.api.schemas.segments import (
     BlockView,
@@ -43,7 +41,6 @@ __all__ = [
     "BlockView",
     "CountsView",
     "CreateDigestRequest",
-    "CreateRecordRequest",
     "DigestListItemView",
     "DigestMetaView",
     "DigestView",
@@ -52,7 +49,6 @@ __all__ = [
     "ProseSegmentView",
     "ProvenanceView",
     "ReadingHintView",
-    "RecordView",
     "Rejection",
     "SegmentView",
     "TokenView",

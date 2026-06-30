@@ -1,4 +1,4 @@
-"""Tests for the Digest IR models and the transitional Record model."""
+"""Tests for the Digest IR models."""
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
@@ -11,7 +11,6 @@ from glyde.core import (
     Preferences,
     ProseSegment,
     Provenance,
-    Record,
     Segment,
     Token,
 )
@@ -74,15 +73,3 @@ def test_provenance_defaults_to_cli_unenriched() -> None:
     """Provenance defaults ingested_via to cli and enriched to False."""
     prov = Provenance(source_kind="cli")
     assert (prov.ingested_via, prov.enriched) == ("cli", False)
-
-
-def test_record_round_trips_through_validation() -> None:
-    """A Record built from valid fields keeps them verbatim (transitional)."""
-    rec = Record(id="a", name="example", created_at="2025-01-01T00:00:00+00:00")
-    assert (rec.id, rec.name, rec.created_at) == ("a", "example", "2025-01-01T00:00:00+00:00")
-
-
-def test_record_rejects_blank_name() -> None:
-    """A blank Record name fails validation (transitional)."""
-    with pytest.raises(ValidationError):
-        Record(id="a", name="", created_at="2025-01-01T00:00:00+00:00")

@@ -43,3 +43,7 @@ CREATE TABLE history (
     completed_at     TEXT,
     settings_snapshot TEXT
 );
+
+-- The Digest IR supersedes the template example: drop the now-unused records
+-- table (greenfield, no data). schema.sql carries no records table to match.
+DROP TABLE records;

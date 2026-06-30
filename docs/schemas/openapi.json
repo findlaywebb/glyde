@@ -235,23 +235,6 @@
         "title": "CreateDigestRequest",
         "type": "object"
       },
-      "CreateRecordRequest": {
-        "additionalProperties": false,
-        "description": "The body for creating a record; the server mints the id and stamps the time.",
-        "properties": {
-          "name": {
-            "description": "Human-meaningful, non-blank name.",
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "CreateRecordRequest",
-        "type": "object"
-      },
       "DigestListItemView": {
         "additionalProperties": false,
         "description": "A library list item: digest metadata plus its derived counts.",
@@ -670,34 +653,6 @@
         "title": "ReadingHintView",
         "type": "object"
       },
-      "RecordView": {
-        "additionalProperties": false,
-        "description": "The read-surface projection of a domain ``Record``.",
-        "properties": {
-          "created_at": {
-            "description": "Canonical ISO-8601 UTC creation timestamp.",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "description": "Opaque unique id.",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "description": "The record's non-blank name.",
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "created_at"
-        ],
-        "title": "RecordView",
-        "type": "object"
-      },
       "TokenView": {
         "additionalProperties": false,
         "description": "The wire projection of a streamed ``Token``.",
@@ -1013,115 +968,6 @@
         "summary": "Replace preferences",
         "tags": [
           "preferences"
-        ]
-      }
-    },
-    "/records": {
-      "get": {
-        "description": "Every record, ordered by creation time ascending.",
-        "operationId": "list_records_records_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RecordView"
-                  },
-                  "title": "Response List Records Records Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List records",
-        "tags": [
-          "records"
-        ]
-      },
-      "post": {
-        "description": "Mint an id, stamp the time server-side, persist, and return the record.",
-        "operationId": "create_record_records_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateRecordRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecordView"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create a record",
-        "tags": [
-          "records"
-        ]
-      }
-    },
-    "/records/{record_id}": {
-      "get": {
-        "description": "Return the record with the given id, or a 404 rejection if absent.",
-        "operationId": "get_record_records__record_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "record_id",
-            "required": true,
-            "schema": {
-              "title": "Record Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RecordView"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Fetch a record",
-        "tags": [
-          "records"
         ]
       }
     }

@@ -1,9 +1,9 @@
-"""In-memory store fakes — real objects, no mocking.
+"""In-memory digest store fake — a real object, no mocking.
 
-Dict-backed ``DigestStore`` and ``RecordStore`` fakes used wherever a test needs
-a store but not the SQLite backing. They are *verified* fakes: the port contract
-suites (``store_contract.py``) run the same behavioural tests against each fake
-and the real SQLite store, so a fake cannot drift from the contract undetected.
+A dict-backed ``DigestStore`` used wherever a test needs a store but not the
+SQLite backing. It is a *verified* fake: the port contract suite
+(``store_contract.py``) runs the same behavioural tests against this fake and the
+real SQLite store, so the fake cannot drift from the contract undetected.
 """
 
 from __future__ import annotations
@@ -13,13 +13,9 @@ from typing import override
 from glyde.core import (
     Digest,
     DigestStore,
-    DuplicateRecordError,
     DuplicateSlugError,
     Preferences,
-    Record,
-    RecordStore,
     UnknownDigestError,
-    UnknownRecordError,
 )
 
 
@@ -64,31 +60,3 @@ class InMemoryDigestStore(DigestStore):
     def put_preferences(self, prefs: Preferences) -> None:
         """Upsert ``prefs`` by its ``owner_id``."""
         self._prefs[prefs.owner_id] = prefs
-
-
-class InMemoryRecordStore(RecordStore):
-    """A dict-backed ``RecordStore`` for tests (transitional example)."""
-
-    def __init__(self) -> None:
-        """Start empty."""
-        self._records: dict[str, Record] = {}
-
-    @override
-    def add(self, record: Record) -> None:
-        """Persist ``record``; raise ``DuplicateRecordError`` on an id clash."""
-        if record.id in self._records:
-            raise DuplicateRecordError
-        self._records[record.id] = record
-
-    @override
-    def get(self, record_id: str) -> Record:
-        """Return the record with ``record_id``; raise ``UnknownRecordError`` if absent."""
-        try:
-            return self._records[record_id]
-        except KeyError as exc:
-            raise UnknownRecordError from exc
-
-    @override
-    def list_all(self) -> list[Record]:
-        """Return every record, ordered by ``created_at`` then ``id`` ascending."""
-        return sorted(self._records.values(), key=lambda r: (r.created_at, r.id))

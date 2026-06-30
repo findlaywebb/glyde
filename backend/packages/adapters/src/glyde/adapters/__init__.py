@@ -4,7 +4,7 @@ This layer owns everything that touches the outside world: the SQLite (WAL)
 store — the source of truth — and any external clients.
 
 Public surfaces:
-- ``glyde.adapters.sqlite`` — ``SqliteRecordStore``: the durable ``RecordStore``
+- ``glyde.adapters.sqlite`` — ``SqliteDigestStore``: the durable ``DigestStore``
   implementation, plus ``connect`` (the one connect path) and ``apply_migrations``
   (the forward-only migration runner).
 

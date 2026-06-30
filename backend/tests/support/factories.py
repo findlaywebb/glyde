@@ -18,7 +18,6 @@ from glyde.core import (
     Preferences,
     ProseSegment,
     Provenance,
-    Record,
     Segment,
     Token,
 )
@@ -29,16 +28,6 @@ _FROZEN_TS = "2025-01-01T00:00:00+00:00"
 def ts() -> str:
     """Return the single pinned canonical UTC instant used by frozen-time tests."""
     return _FROZEN_TS
-
-
-def record(
-    *,
-    id: str = "rec-1",  # noqa: A002 - mirrors the domain field name on purpose
-    name: str = "example",
-    created_at: str | None = None,
-) -> Record:
-    """Build a ``Record`` with overridable fields; ``created_at`` defaults to ``ts()``."""
-    return Record(id=id, name=name, created_at=created_at or ts())
 
 
 def words(*texts: str) -> list[Token]:

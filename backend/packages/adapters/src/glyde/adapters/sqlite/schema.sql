@@ -3,12 +3,6 @@
 -- builds a database both ways (apply migrations vs run this script) and asserts
 -- the two schemas converge. Keep it in lockstep with every new migration.
 
-CREATE TABLE records (
-    id         TEXT PRIMARY KEY,
-    name       TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-
 CREATE TABLE digests (
     id                TEXT PRIMARY KEY,
     slug              TEXT NOT NULL UNIQUE,

@@ -36,7 +36,6 @@ from glyde.api.routes import (
     lan_router,
     meta_router,
     preferences_router,
-    records_router,
 )
 from glyde.api.schemas import Rejection
 from glyde.api.settings import get_settings
@@ -53,8 +52,6 @@ logger = logging.getLogger(__name__)
 _STATUS_BY_CODE: dict[str, int] = {
     "unknown_digest": 404,
     "duplicate_slug": 409,
-    "unknown_record": 404,
-    "duplicate_record": 409,
 }
 _DEFAULT_STATUS = 409
 
@@ -99,5 +96,4 @@ def create_app() -> FastAPI:
     app.include_router(digests_router)
     app.include_router(preferences_router)
     app.include_router(lan_router)
-    app.include_router(records_router)
     return app
