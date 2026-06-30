@@ -18,6 +18,7 @@ What this module does NOT do:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
@@ -37,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 _SEGMENTS = TypeAdapter(list[Segment])
 _STRUCTURE_MARKERS = ("#", "```", "|", "![", "$$", ":::", ">", "-", "*", "+")
+_ORDERED_LIST = re.compile(r"\d+\.\s")  # the marker tuple cannot express the N. list form
 
 
 @dataclass(frozen=True)
@@ -66,8 +68,16 @@ class ComposeDeps:
 
 
 def _has_structure(text: str) -> bool:
-    """Return True if any line opens with a Glyde-Markdown structure marker."""
-    return any(line.strip().startswith(_STRUCTURE_MARKERS) for line in text.splitlines())
+    """Return True if any line opens with a Glyde-Markdown structure marker.
+
+    Covers the prefix markers plus the ordered-list ``N.`` form (which the
+    deterministic parser recognises but a simple prefix tuple cannot express).
+    """
+    return any(
+        (stripped := line.strip()).startswith(_STRUCTURE_MARKERS)
+        or _ORDERED_LIST.match(stripped) is not None
+        for line in text.splitlines()
+    )
 
 
 def _slug_taken(store: DigestStore, slug: str) -> bool:
