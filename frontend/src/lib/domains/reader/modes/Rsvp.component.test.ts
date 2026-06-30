@@ -106,6 +106,51 @@ describe('pivotTranslateX (the centring maths)', () => {
 	});
 });
 
+describe('Rsvp at rest (token null — paused before first play)', () => {
+	// The engine's `token` is null before playback starts and while paused on the first word.
+	// RSVP must never be blank at rest: it falls back to `words[wordIndex]`.
+	//
+	// Fixtures pass `pivotIndex: 0` — the real engine value when `token` is null — so the tests
+	// exercise the component's own pivot computation for the fallback path.
+
+	it('shows the word at wordIndex 0 when token is null', () => {
+		const tok = word('hello');
+		// The real engine emits pivotIndex=0 when token is null; the component computes the true ORP.
+		const state = readerState({ token: null, wordIndex: 0, pivotIndex: 0 });
+		const props: ModeProps = { mode: 'rsvp', state, words: [tok] };
+		const { container } = render(Rsvp, props);
+		// The word band must be present — RSVP must not render blank at rest.
+		expect(container.querySelector('.word')).not.toBeNull();
+		expect(container.querySelector('.word .w')?.textContent).toBe('hello');
+	});
+
+	it('shows the word at a non-zero paused position', () => {
+		const ws = [word('first'), word('second'), word('third')];
+		// The real engine emits pivotIndex=0 when token is null.
+		const state = readerState({ token: null, wordIndex: 1, pivotIndex: 0 });
+		const props: ModeProps = { mode: 'rsvp', state, words: ws };
+		const { container } = render(Rsvp, props);
+		expect(container.querySelector('.word .w')?.textContent).toBe('second');
+	});
+
+	it('computes the ORP pivot from the fallback word, not from the engine state', () => {
+		// The engine emits pivotIndex=0 when token is null. The component must compute the true ORP
+		// from displayToken.text.length — if it blindly used engine.pivotIndex it would mark the
+		// wrong character. 'configuration' has ORP index 3 ('u'), not 0 ('c').
+		const tok = word('configuration');
+		const expectedPi = pivotIndex(tok.text.length); // 3
+		// Engine state has pivotIndex=0 (real at-rest value).
+		const state = readerState({ token: null, wordIndex: 0, pivotIndex: 0 });
+		const props: ModeProps = { mode: 'rsvp', state, words: [tok] };
+		const { container } = render(Rsvp, props);
+		const mark = container.querySelector('[data-pivot]');
+		expect(mark).not.toBeNull();
+		// Must be 'u' (index 3), not 'c' (index 0).
+		expect(mark?.textContent).toBe('configuration'[expectedPi]);
+		expect(mark?.className).toContain('text-pivot');
+	});
+});
+
 describe('Rsvp context rows', () => {
 	it('renders the surrounding context words dimmed, in distinct above and below rows', () => {
 		const { container } = mountWord(word('hello'), {

@@ -12,35 +12,52 @@
 	 * positioned clear of the word band and centred on the same column as the pivot, so they never
 	 * perturb or crowd the pivot.
 	 *
-	 * What it does NOT do: it computes no pacing (pivot index and dwell are the engine's), binds
-	 * no keys or `window` listeners (R-STAGE owns the single global listener), and never colours
-	 * anything but the pivot. Sizing comes from the stage via `--reading-size` /
-	 * `--reading-letter-spacing` custom properties, so this view inherits the user's preferences
-	 * without reading them directly.
+	 * What it does NOT do: it computes no pacing (dwell is the engine's), binds no keys or `window`
+	 * listeners (R-STAGE owns the single global listener), and never colours anything but the pivot.
+	 * Exception: when the engine's `token` is null (before first play, or paused) it falls back to
+	 * `words[wordIndex]` so the view is never blank at rest, and it computes the pivot index for
+	 * that fallback word itself (the engine emits `pivotIndex === 0` when `token` is null). During
+	 * playback the engine's `pivotIndex` is used directly. Sizing comes from the stage via
+	 * `--reading-size` / `--reading-letter-spacing` custom properties, so this view inherits the
+	 * user's preferences without reading them directly.
 	 */
 	import type { ModeProps } from '../types';
+	import { pivotIndex as computePivot } from '../cadence';
 	import { pivotTranslateX } from './measure';
 	import Word from './Word.svelte';
 
 	// Renamed off the `state` prop: a local binding named `state` would make the `$state` rune
 	// below ambiguous with a store auto-subscription (`store_rune_conflict`).
-	let { state: reader }: ModeProps = $props();
+	let { state: reader, words }: ModeProps = $props();
 
 	const token = $derived(reader.token);
 	const pivot = $derived(reader.pivotIndex);
 	const contextBefore = $derived(reader.contextBefore);
 	const contextAfter = $derived(reader.contextAfter);
+	const wordIndex = $derived(reader.wordIndex);
+
+	// At rest (before first play, or while paused) the engine's `token` is null. Fall back to the
+	// word at `wordIndex` in the full `words` stream — the same source Focus/Flow use — so the
+	// reader is never blank at the initial position or at any paused position.
+	const displayToken = $derived(token ?? words[wordIndex] ?? null);
+
+	// The engine sets `pivotIndex === 0` whenever `token` is null (engine.svelte.ts). For the
+	// fallback word we compute the true ORP ourselves so the red glyph lands on the right character.
+	// During playback `token` is non-null and we use the engine's pre-computed value directly.
+	const displayPivot = $derived(
+		token ? pivot : displayToken ? computePivot(displayToken.text.length) : 0
+	);
 
 	let wordEl = $state<HTMLSpanElement | null>(null);
 	let translateX = $state(0);
 
 	// DOM boundary: after each word renders, measure the pivot glyph (the `[data-pivot]` span the
 	// shared Word renderer marks) and translate the word so the glyph centre lands on the reticle
-	// column. Reading `token` + `pivot` registers them as deps so the measure re-runs on every word
-	// change; `translateX` is written but not read, so no loop.
+	// column. Reading `displayToken` + `displayPivot` registers them as deps so the measure re-runs
+	// on every word change; `translateX` is written but not read, so no loop.
 	$effect(() => {
-		void token;
-		void pivot;
+		void displayToken;
+		void displayPivot;
 		const word = wordEl;
 		const wrap = word?.parentElement;
 		const mark = word?.querySelector<HTMLElement>('[data-pivot]');
@@ -50,7 +67,7 @@
 </script>
 
 <div class="rsvp-stage font-reading text-reading-foreground">
-	{#if token}
+	{#if displayToken}
 		{#if contextBefore.length > 0}
 			<div class="ctx-row ctx-above text-reading-dim" aria-hidden="true">
 				<span class="ctx-text">{contextBefore.map((t) => t.text).join(' ')}</span>
@@ -64,7 +81,7 @@
 
 		<div class="word-wrap">
 			<span class="word" bind:this={wordEl} style:transform="translate({translateX}px, -50%)">
-				<Word {token} {pivot} />
+				<Word token={displayToken} pivot={displayPivot} />
 			</span>
 		</div>
 
