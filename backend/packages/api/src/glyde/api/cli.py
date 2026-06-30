@@ -129,7 +129,7 @@ def add(
             raise typer.Exit(code=_EXIT_BAD_INPUT) from exc
     typer.echo(digest.meta.name)
     typer.echo(digest.meta.slug)
-    typer.echo(f"http://{settings.lan_host}:{settings.port}/d/{digest.meta.slug}")
+    typer.echo(f"http://{settings.lan_host}:{settings.lan_port}/d/{digest.meta.slug}")
 
 
 @app.command(name="list")
