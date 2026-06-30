@@ -35,6 +35,10 @@ type Enricher = Callable[[str], str]
 def get_enricher(settings: Settings) -> Enricher | None:
     """Return a key-gated enricher callable, or ``None`` when no key is configured.
 
+    A blank key (``None`` or empty/whitespace string — e.g. an exported-but-empty
+    ``GLYDE_ANTHROPIC_API_KEY``) is treated as absent, so the deterministic parse
+    path is taken instead of building a doomed client.
+
     Args:
         settings: Runtime settings carrying the optional Anthropic API key.
 
@@ -43,6 +47,11 @@ def get_enricher(settings: Settings) -> Enricher | None:
         when a key is present; ``None`` otherwise (deterministic parse path).
     """
     api_key = settings.anthropic_api_key
-    if api_key is None:
+    if not api_key or not api_key.strip():
         return None
-    return lambda raw: _adapter_enrich(raw, api_key=api_key)
+
+    def _enricher(raw: str) -> str:
+        """Enrich ``raw`` via the Haiku adapter with the resolved key."""
+        return _adapter_enrich(raw, api_key=api_key)
+
+    return _enricher

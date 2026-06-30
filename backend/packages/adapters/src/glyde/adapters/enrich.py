@@ -7,6 +7,11 @@ The caller injects the API key; this adapter never reads the environment.
 The optional ``client`` parameter allows injection of a hand-written fake during
 unit tests so the adapter is exercised without a real API call.
 
+The adapter treats truncated, empty, or non-text responses as bad output and
+raises — the caller wraps the call in a try/except and falls back to the
+deterministic parser, so a degraded model response never silently replaces the
+verbatim source with partial or empty content.
+
 What this module does NOT do:
 - No key resolution — the caller provides ``api_key`` (injected from Settings via
   the api layer).
@@ -18,16 +23,11 @@ What this module does NOT do:
 
 from __future__ import annotations
 
-import logging
-
 import anthropic
 from anthropic.types import TextBlock
 
-logger = logging.getLogger(__name__)
-
 _MODEL = "claude-haiku-4-5"
 _MAX_TOKENS = 4096
-_TEMPERATURE = 0.0
 
 _SYSTEM_PROMPT = (
     "Convert the raw agent or CLI output below into Glyde Markdown for a"
@@ -63,8 +63,11 @@ def enrich(
         Glyde Markdown with headings, fenced blocks, and blank-line separators.
 
     Raises:
+        ValueError: When the response is truncated at the output cap, carries no
+            content blocks, or yields empty text — bad output the caller falls
+            back from rather than persisting partial or empty content.
+        TypeError: When the first content block is not a text block.
         anthropic.APIError: On network or API-layer failure (caller catches all).
-        ValueError: When the response contains no text block.
     """
     _client = client if client is not None else anthropic.Anthropic(api_key=api_key)
     message = _client.messages.create(
@@ -72,11 +75,15 @@ def enrich(
         max_tokens=_MAX_TOKENS,
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": raw}],
-        temperature=_TEMPERATURE,
+        temperature=0.0,
     )
+    if message.stop_reason == "max_tokens":
+        raise ValueError("enricher response was truncated at the output token cap")
     if not message.content:
         raise ValueError("enricher response contained no content blocks")
     block = message.content[0]
     if not isinstance(block, TextBlock):
         raise TypeError("enricher response first block is not a text block")
+    if not block.text.strip():
+        raise ValueError("enricher response text was empty")
     return block.text

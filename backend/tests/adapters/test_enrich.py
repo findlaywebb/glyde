@@ -2,25 +2,23 @@
 
 Covers:
 - ``glyde.adapters.enrich.enrich`` — the Anthropic adapter (via a hand-written
-  fake client; no real API call).
-- ``glyde.api.enrich.get_enricher`` — key-presence gate (None vs callable).
+  fake client; no real API call), including the bad-output guards (truncation,
+  empty content, non-text block, empty text).
+- ``glyde.api.enrich.get_enricher`` — key-presence gate (None vs callable),
+  treating a blank key as absent.
 - ``compose_digest`` enrich gate — enriches only when enrich=True AND an enricher
   is present AND the text has no detected structure; falls back gracefully on any
   failure.
 
 No ``unittest.mock`` or ``pytest_mock`` is used. The Anthropic client is replaced
-by a hand-written fake that constructs real ``anthropic.types`` objects so
-``isinstance`` checks inside the adapter pass.
+by a hand-written fake that constructs real ``anthropic.types`` objects so the
+``isinstance`` checks inside the adapter run against genuine response shapes.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import anthropic
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 import anthropic.types
 import pytest
 from support.memory_store import InMemoryDigestStore
@@ -30,36 +28,64 @@ from glyde.api.compose import ComposeDeps, ComposeRequest, compose_digest
 from glyde.api.enrich import get_enricher
 from glyde.api.settings import Settings
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 # ---------------------------------------------------------------------------
 # Hand-written fake Anthropic client (real anthropic.types objects)
 # ---------------------------------------------------------------------------
 
 
-class _FakeMessages:
-    """Fake Anthropic messages resource returning a canned text response."""
+def _message(
+    *,
+    text: str | None = None,
+    content: list[anthropic.types.ContentBlock] | None = None,
+    stop_reason: str = "end_turn",
+) -> anthropic.types.Message:
+    """Build a real ``anthropic.types.Message`` for the fake client to return.
 
-    def __init__(self, return_text: str) -> None:
-        """Store the text that ``create`` will return."""
-        self._return_text = return_text
+    Pass ``text`` for the common single-TextBlock case, or ``content`` to supply
+    an explicit block list (empty, or a non-text block) for the guard tests.
+    """
+    blocks = (
+        content
+        if content is not None
+        else [anthropic.types.TextBlock(type="text", text=text or "")]
+    )
+    return anthropic.types.Message(
+        id="fake-msg-id",
+        content=blocks,
+        model="claude-haiku-4-5",
+        role="assistant",
+        type="message",
+        stop_reason=stop_reason,  # ty: ignore[invalid-argument-type]
+        usage=anthropic.types.Usage(input_tokens=1, output_tokens=1),
+    )
+
+
+class _FakeMessages:
+    """Fake Anthropic messages resource returning a pre-built canned message."""
+
+    def __init__(self, message: anthropic.types.Message) -> None:
+        """Store the ``Message`` that ``create`` will return."""
+        self._message = message
 
     def create(self, **_kwargs: object) -> anthropic.types.Message:
-        """Return a canned ``Message`` with a single TextBlock."""
-        return anthropic.types.Message(
-            id="fake-msg-id",
-            content=[anthropic.types.TextBlock(type="text", text=self._return_text)],
-            model="claude-haiku-4-5",
-            role="assistant",
-            type="message",
-            usage=anthropic.types.Usage(input_tokens=1, output_tokens=1),
-        )
+        """Return the canned ``Message`` regardless of the request arguments."""
+        return self._message
 
 
 class _FakeClient:
     """Fake Anthropic client exposing only the ``messages.create`` surface."""
 
-    def __init__(self, return_text: str = "## Result\nA result.") -> None:
-        """Configure the text the fake messages resource will return."""
-        self.messages = _FakeMessages(return_text)
+    def __init__(self, message: anthropic.types.Message) -> None:
+        """Wrap ``message`` in a fake messages resource."""
+        self.messages = _FakeMessages(message)
+
+
+def _client(**kwargs: object) -> _FakeClient:
+    """Build a fake client whose ``messages.create`` returns ``_message(**kwargs)``."""
+    return _FakeClient(_message(**kwargs))  # ty: ignore[invalid-argument-type]
 
 
 # ---------------------------------------------------------------------------
@@ -88,34 +114,38 @@ def _deps(
 
 
 class TestEnrichAdapter:
-    """The Anthropic adapter returns the text block from the fake client response."""
+    """The adapter returns good text and rejects every bad-output shape."""
 
     def test_returns_text_from_canned_response(self) -> None:
         """enrich() extracts and returns the TextBlock text from the fake client."""
-        fake = _FakeClient(return_text="## Structured\nbody text")
+        fake = _client(text="## Structured\nbody text")
         result = enrich("raw input", api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
         assert result == "## Structured\nbody text"
 
+    def test_raises_on_truncated_response(self) -> None:
+        """enrich() raises when the response was truncated at the output token cap."""
+        fake = _client(text="## Partial\nbody cut off", stop_reason="max_tokens")
+        with pytest.raises(ValueError, match="truncated"):
+            enrich("raw", api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
+
     def test_raises_value_error_on_empty_content(self) -> None:
         """enrich() raises ValueError when the response has no content blocks."""
-
-        class _EmptyMessages:
-            def create(self, **_kwargs: object) -> anthropic.types.Message:
-                """Return a Message with no content."""
-                return anthropic.types.Message(
-                    id="empty-msg",
-                    content=[],
-                    model="claude-haiku-4-5",
-                    role="assistant",
-                    type="message",
-                    usage=anthropic.types.Usage(input_tokens=1, output_tokens=0),
-                )
-
-        class _EmptyClient:
-            messages = _EmptyMessages()
-
+        fake = _client(content=[])
         with pytest.raises(ValueError, match="no content blocks"):
-            enrich("raw", api_key="dummy", client=_EmptyClient())  # ty: ignore[invalid-argument-type]
+            enrich("raw", api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
+
+    def test_raises_type_error_on_non_text_block(self) -> None:
+        """enrich() raises TypeError when the first block is not a text block."""
+        thinking = anthropic.types.ThinkingBlock(type="thinking", thinking="hmm", signature="sig")
+        fake = _client(content=[thinking])
+        with pytest.raises(TypeError, match="not a text block"):
+            enrich("raw", api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
+
+    def test_raises_on_empty_text(self) -> None:
+        """enrich() raises when the text block is blank — bad output, not a passthrough."""
+        fake = _client(text="   \n  ")
+        with pytest.raises(ValueError, match="empty"):
+            enrich("raw", api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
 
 
 # ---------------------------------------------------------------------------
@@ -124,12 +154,17 @@ class TestEnrichAdapter:
 
 
 class TestGetEnricher:
-    """get_enricher returns None without a key and a callable with one."""
+    """get_enricher returns None for a blank key and a callable for a real one."""
 
     def test_returns_none_when_no_key(self) -> None:
-        """get_enricher returns None when anthropic_api_key is absent."""
+        """get_enricher returns None when anthropic_api_key is None."""
         settings = Settings(anthropic_api_key=None)
         assert get_enricher(settings) is None
+
+    def test_returns_none_when_key_is_blank(self) -> None:
+        """get_enricher treats an empty/whitespace key as absent (no doomed client)."""
+        assert get_enricher(Settings(anthropic_api_key="")) is None
+        assert get_enricher(Settings(anthropic_api_key="   ")) is None
 
     def test_returns_callable_when_key_present(self) -> None:
         """get_enricher returns a callable when anthropic_api_key is set."""
@@ -218,5 +253,24 @@ class TestComposeEnrichGate:
         store = InMemoryDigestStore()
         digest = compose_digest(self._plain_req(enrich_flag=True), _deps(store, enricher=_fail))
         # Falls back gracefully — the digest is stored and enriched flag is False.
+        assert digest.meta.provenance.enriched is False
+        assert len(digest.segments) > 0
+
+    def test_falls_back_through_the_real_adapter_on_bad_output(self) -> None:
+        """A truncated adapter response surfaces as a graceful deterministic fallback.
+
+        Drives the real ``enrich`` adapter (via a fake client) through
+        ``compose_digest`` to prove the adapter's bad-output guard reaches the
+        try/except fallback rather than persisting partial content.
+        """
+        fake = _client(text="## Partial", stop_reason="max_tokens")
+
+        def _adapter_enricher(text: str) -> str:
+            return enrich(text, api_key="dummy", client=fake)  # ty: ignore[invalid-argument-type]
+
+        store = InMemoryDigestStore()
+        digest = compose_digest(
+            self._plain_req(enrich_flag=True), _deps(store, enricher=_adapter_enricher)
+        )
         assert digest.meta.provenance.enriched is False
         assert len(digest.segments) > 0
