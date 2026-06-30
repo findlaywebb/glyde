@@ -4,68 +4,129 @@
    Toggle by setting `class="dark"` on <html>. */
 @custom-variant dark (&:is(.dark *));
 
-/* Semantic design tokens — the single source of truth for colour. Components speak
-   these (bg-card, text-muted-foreground), never the raw palette. Neutral placeholder
-   palette (shadcn-svelte `neutral`); swap for the project's real palette. */
-:root {
-	/* color-scheme follows the cascade so native UA surfaces (form controls, scrollbars, the
-	   pre-paint root background, the iOS overscroll area) match the active theme — the half of
-	   dark mode the token cascade alone doesn't cover. Resolves to `dark` in the app because
-	   <html class="dark"> wins by source order over :root. */
+/* ── The Glyde theme tokens (the §5.8 frozen contract) ───────────────────────────
+   Three themes carry the prototype palette (prototype/reader.html): dark (default),
+   light, and sepia. The scaffold shipped only `:root` (light) + `.dark`; X1 adds
+   explicit `.light` and `.sepia` scopes BESIDE `.dark` so ANY subtree — and the `/dev`
+   harness — can scope a theme with a single class, not just <html>.
+
+   `:root` is the light default; `.light` re-states it so a subtree can force light even
+   under a dark root. `<html class="dark">` (app.html) makes the app dark on first paint.
+
+   Beyond the inherited shadcn chrome set, Glyde adds SEMANTIC READING tokens — `pivot`
+   (the one reserved coral reading colour), `reading`/`reading-foreground`/`reading-dim`
+   (the calm reading stage, its off-white text, and the dimmed context/fade), and `cue`
+   (the "block ahead" chip) — plus `font-reading` (Atkinson Hyperlegible), `font-ui`
+   (Lexend) and `font-mono`. These are the ONLY colour/face utilities downstream FE units
+   may type; a raw hex or palette class is a contract violation (frontend/CLAUDE.md). */
+
+:root,
+.light {
 	color-scheme: light;
 	--radius: 0.625rem;
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.205 0 0);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
+
+	/* chrome — prototype light: bg #fdfdf8 / fg #1a1a1a / muted #999 / accent #dd1122 */
+	--background: #fdfdf8;
+	--foreground: #1a1a1a;
+	--card: #f0efe8;
+	--card-foreground: #1a1a1a;
+	--popover: #f0efe8;
+	--popover-foreground: #1a1a1a;
+	--primary: #dd1122;
+	--primary-foreground: #ffffff;
+	--secondary: #dcdbd2;
+	--secondary-foreground: #1a1a1a;
+	--muted: #f0efe8;
+	--muted-foreground: #767676;
+	--accent: #dcdbd2;
+	--accent-foreground: #1a1a1a;
+	--destructive: #c2261d;
+	--border: #dcdbd2;
+	--input: #cfcec4;
+	--ring: #dd1122;
+
+	/* reading */
+	--pivot: #dd1122;
+	--reading: #fdfdf8;
+	--reading-foreground: #1a1a1a;
+	--reading-dim: #767676;
+	--cue: #9a6700;
 }
 
 .dark {
 	color-scheme: dark;
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.922 0 0);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	/* Darkened so white text on the destructive button clears WCAG AA in dark mode. */
-	--destructive: oklch(0.55 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
+
+	/* chrome — prototype dark: bg #11151c / fg #e6edf3 / muted #7d8590 / accent #ff5c5c */
+	--background: #11151c;
+	--foreground: #e6edf3;
+	--card: #1b2027;
+	--card-foreground: #e6edf3;
+	--popover: #1b2027;
+	--popover-foreground: #e6edf3;
+	--primary: #ff5c5c;
+	--primary-foreground: #11151c;
+	--secondary: #2a313b;
+	--secondary-foreground: #e6edf3;
+	--muted: #1b2027;
+	--muted-foreground: #9aa4b1;
+	--accent: #2a313b;
+	--accent-foreground: #e6edf3;
+	--destructive: #cf3636;
+	--border: #2a313b;
+	--input: #2a313b;
+	--ring: #ff5c5c;
+
+	/* reading */
+	--pivot: #ff5c5c;
+	--reading: #11151c;
+	--reading-foreground: #e6edf3;
+	--reading-dim: #7d8590;
+	--cue: #e3b341;
 }
 
-/* @theme inline: expose the tokens to Tailwind as `--color-*` utilities. `inline` is
-   load-bearing — it emits `var(--color-card)` into the generated class so the value
-   re-resolves at runtime and `bg-card` flips under `.dark`. Without `inline`, Tailwind
-   snapshots the :root value at build time and dark mode silently breaks. */
+.sepia {
+	color-scheme: light;
+
+	/* chrome — prototype sepia: bg #f4ecd8 / fg #3a2f23 / muted #a8987e / accent #b3402a */
+	--background: #f4ecd8;
+	--foreground: #3a2f23;
+	--card: #ece1c8;
+	--card-foreground: #3a2f23;
+	--popover: #ece1c8;
+	--popover-foreground: #3a2f23;
+	--primary: #b3402a;
+	--primary-foreground: #ffffff;
+	--secondary: #ddd0b3;
+	--secondary-foreground: #3a2f23;
+	--muted: #ece1c8;
+	--muted-foreground: #857455;
+	--accent: #ddd0b3;
+	--accent-foreground: #3a2f23;
+	--destructive: #a13420;
+	--border: #ddd0b3;
+	--input: #d2c4a3;
+	--ring: #b3402a;
+
+	/* reading */
+	--pivot: #b3402a;
+	--reading: #f4ecd8;
+	--reading-foreground: #3a2f23;
+	--reading-dim: #857455;
+	--cue: #8a6d1f;
+}
+
+/* @theme inline: expose the tokens to Tailwind as `--color-*` / `--font-*` utilities.
+   `inline` is load-bearing — it inlines `var(--background)` into the generated class so
+   the value re-resolves against the nearest theme scope at runtime (and `bg-background`
+   flips under `.dark`/`.sepia`). Without `inline`, Tailwind snapshots the :root value at
+   build time and theme switching silently breaks. Fonts are static so they carry literal
+   stacks; the faces themselves load via <link> in app.html. */
 @theme inline {
 	--radius-sm: calc(var(--radius) - 4px);
 	--radius-md: calc(var(--radius) - 2px);
 	--radius-lg: var(--radius);
 	--radius-xl: calc(var(--radius) + 4px);
+
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-card: var(--card);
@@ -84,13 +145,69 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
+
+	/* reading tokens (§5.8) */
+	--color-pivot: var(--pivot);
+	--color-reading: var(--reading);
+	--color-reading-foreground: var(--reading-foreground);
+	--color-reading-dim: var(--reading-dim);
+	--color-cue: var(--cue);
+
+	/* faces — Atkinson Hyperlegible for the streamed word, Lexend for chrome */
+	--font-reading: 'Atkinson Hyperlegible', system-ui, sans-serif;
+	--font-ui: 'Lexend', system-ui, sans-serif;
+	--font-mono:
+		ui-monospace, SFMono-Regular, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+	/* Sheet/overlay entrances — compositor-only transform/opacity (assay motion discipline).
+	   Applied via the `motion-safe:` variant so a reduced-motion user gets the instant outcome
+	   (no JS transition, so no Web-Animations dependency). */
+	--animate-overlay-in: glyde-overlay-in 160ms ease-out;
+	--animate-sheet-bottom: glyde-sheet-bottom 260ms cubic-bezier(0.32, 0.72, 0, 1);
+	--animate-sheet-right: glyde-sheet-right 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes glyde-overlay-in {
+	from {
+		opacity: 0;
+	}
+}
+
+@keyframes glyde-sheet-bottom {
+	from {
+		transform: translateY(100%);
+	}
+}
+
+@keyframes glyde-sheet-right {
+	from {
+		transform: translateX(100%);
+	}
 }
 
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
 	}
+
+	/* Mobile-first shell ergonomics (§5.11): contain overscroll chaining so the reading
+	   surface never rubber-bands the whole page; never let a stray wide child force a
+	   horizontal scroll on a phone. */
+	html {
+		overscroll-behavior-y: contain;
+		-webkit-text-size-adjust: 100%;
+	}
+
 	body {
-		@apply bg-background text-foreground;
+		@apply bg-background font-ui text-foreground min-h-dvh;
+	}
+
+	/* iOS focus-zoom guard: a text input under 16px makes Safari zoom on focus — jarring
+	   for a reading app. Floor every text-entry control at 16px (range/checkbox excepted,
+	   which do not zoom). A component wanting larger text overrides with a utility. */
+	input:not([type='range']):not([type='checkbox']):not([type='radio']),
+	select,
+	textarea {
+		font-size: max(16px, 1rem);
 	}
 }

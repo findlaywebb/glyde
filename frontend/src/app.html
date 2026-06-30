@@ -10,6 +10,17 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1, interactive-widget=resizes-content"
 		/>
+		<!-- No-flash: tells the UA to paint native surfaces (root background before CSS,
+			form controls, scrollbars, iOS overscroll) dark-first, matching <html class="dark">. -->
+		<meta name="color-scheme" content="dark light" />
+		<!-- Reading + UI faces (Atkinson Hyperlegible, Lexend). The CSS tokens fall back to
+			system-ui if these never load (offline), so the shell degrades gracefully. -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
