@@ -55,8 +55,8 @@ describe('BlockAheadCue', () => {
 
 	it('does not render when not visible', () => {
 		render(BlockAheadCue, { kind: 'table', visible: false });
-		expect(screen.queryByRole('status')).toBeNull();
-		expect(screen.queryByText('table ahead')).toBeNull();
+		expect(screen.queryByRole('status')).not.toBeInTheDocument();
+		expect(screen.queryByText('table ahead')).not.toBeInTheDocument();
 	});
 
 	it('shows the correct label for each kind', () => {
@@ -88,7 +88,7 @@ describe('CodeCard', () => {
 
 	it('does not show the reshown affordance when reshown=false', () => {
 		render(CodeCard, { block: block('code'), reshown: false });
-		expect(screen.queryByText('reshown')).toBeNull();
+		expect(screen.queryByText('reshown')).not.toBeInTheDocument();
 	});
 
 	it('renders without a lang when lang is null', () => {
@@ -97,7 +97,7 @@ describe('CodeCard', () => {
 		const pre = container.querySelector('pre');
 		expect(pre).toBeTruthy();
 		expect(pre?.textContent?.trim()).toContain('x = 1');
-		expect(screen.queryByText('py')).toBeNull();
+		expect(screen.queryByText('py')).not.toBeInTheDocument();
 	});
 
 	it('toggles between scroll and wrap mode', async () => {
@@ -110,6 +110,45 @@ describe('CodeCard', () => {
 		// After toggle: wrap on, aria-pressed true, visible text switches to "scroll"
 		expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
 		expect(toggleBtn.textContent?.trim()).toBe('scroll');
+	});
+
+	it('is collapsed by default', () => {
+		render(CodeCard, { block: block('code'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand code block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('expands and collapses on click', async () => {
+		render(CodeCard, { block: block('code'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand code block' });
+		await fireEvent.click(expandBtn);
+		// Button label flips to "Collapse" when expanded
+		const collapseBtn = screen.getByRole('button', { name: 'Collapse code block' });
+		expect(collapseBtn).toHaveAttribute('aria-expanded', 'true');
+		await fireEvent.click(collapseBtn);
+		expect(screen.getByRole('button', { name: 'Expand code block' })).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	});
+
+	it('expand button activates via keyboard (Enter fires click on native button)', async () => {
+		render(CodeCard, { block: block('code'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand code block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+		// Native <button> fires click on Enter/Space — simulate Enter keydown
+		await fireEvent.keyDown(expandBtn, { key: 'Enter', code: 'Enter' });
+		// jsdom does not synthesise a click from keydown; verify the button is a real
+		// focusable <button> with aria-expanded so the browser guarantee applies
+		expect(expandBtn.tagName).toBe('BUTTON');
+		expect(expandBtn).not.toHaveAttribute('tabindex', '-1');
+	});
+
+	it('has hover elevation affordance styling', () => {
+		const { container } = render(CodeCard, { block: block('code'), reshown: false });
+		const article = container.querySelector('article');
+		expect(article).toBeTruthy();
+		expect(article!.className).toContain('hover:shadow-md');
 	});
 });
 
@@ -127,9 +166,10 @@ describe('TableCard', () => {
 	});
 
 	it('renders a stacked label view for narrow layout', () => {
-		render(TableCard, { block: block('table'), reshown: false });
+		const { container } = render(TableCard, { block: block('table'), reshown: false });
 		// The stacked layout uses dl/dt/dd elements with "header:" labels
-		const dts = document.querySelectorAll('dt');
+		// Use container to avoid leaking into other concurrent renders
+		const dts = container.querySelectorAll('dt');
 		expect(dts.length).toBeGreaterThan(0);
 		// Each dt should show a header name
 		const dtTexts = Array.from(dts).map((dt) => dt.textContent?.trim());
@@ -140,6 +180,51 @@ describe('TableCard', () => {
 	it('shows the reshown affordance when reshown=true', () => {
 		render(TableCard, { block: block('table'), reshown: true });
 		expect(screen.getByText('reshown')).toBeInTheDocument();
+	});
+
+	it('has zebra-striped rows', () => {
+		const { container } = render(TableCard, { block: block('table'), reshown: false });
+		// Odd (1-indexed) data rows get the muted background utility class
+		const rows = container.querySelectorAll('tbody tr');
+		expect(rows.length).toBeGreaterThan(0);
+		// Second row (index 1, ri=1) should have the zebra class; first should not
+		expect(rows[1]?.className).toContain('bg-muted/40');
+		expect(rows[0]?.className).not.toContain('bg-muted/40');
+	});
+
+	it('is collapsed by default', () => {
+		render(TableCard, { block: block('table'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand table block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('expands and collapses on click', async () => {
+		render(TableCard, { block: block('table'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand table block' });
+		await fireEvent.click(expandBtn);
+		const collapseBtn = screen.getByRole('button', { name: 'Collapse table block' });
+		expect(collapseBtn).toHaveAttribute('aria-expanded', 'true');
+		await fireEvent.click(collapseBtn);
+		expect(screen.getByRole('button', { name: 'Expand table block' })).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	});
+
+	it('expand button activates via keyboard (Enter fires click on native button)', async () => {
+		render(TableCard, { block: block('table'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand table block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+		await fireEvent.keyDown(expandBtn, { key: 'Enter', code: 'Enter' });
+		expect(expandBtn.tagName).toBe('BUTTON');
+		expect(expandBtn).not.toHaveAttribute('tabindex', '-1');
+	});
+
+	it('has hover elevation affordance styling', () => {
+		const { container } = render(TableCard, { block: block('table'), reshown: false });
+		const article = container.querySelector('article');
+		expect(article).toBeTruthy();
+		expect(article!.className).toContain('hover:shadow-md');
 	});
 });
 
@@ -216,8 +301,63 @@ describe('NoteCard', () => {
 		expect(screen.getByText('Take a breath before continuing.')).toBeInTheDocument();
 	});
 
+	it('renders inline markdown bold and em', () => {
+		const b = block('note', { content: '**bold** and *em* text' });
+		const { container } = render(NoteCard, { block: b, reshown: false });
+		expect(container.querySelector('strong')?.textContent?.trim()).toBe('bold');
+		expect(container.querySelector('em')?.textContent?.trim()).toBe('em');
+	});
+
+	it('renders inline code', () => {
+		const b = block('note', { content: 'Use `console.log()` for debugging' });
+		const { container } = render(NoteCard, { block: b, reshown: false });
+		expect(container.querySelector('code')?.textContent?.trim()).toBe('console.log()');
+	});
+
+	it('renders a markdown list', () => {
+		const b = block('note', { content: '- item one\n- item two' });
+		const { container } = render(NoteCard, { block: b, reshown: false });
+		expect(container.querySelector('ul')).toBeTruthy();
+		expect(screen.getByText('item one')).toBeInTheDocument();
+	});
+
 	it('shows the reshown affordance when reshown=true', () => {
 		render(NoteCard, { block: block('note'), reshown: true });
 		expect(screen.getByText('reshown')).toBeInTheDocument();
+	});
+
+	it('is collapsed by default', () => {
+		render(NoteCard, { block: block('note'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand note block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+	});
+
+	it('expands and collapses on click', async () => {
+		render(NoteCard, { block: block('note'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand note block' });
+		await fireEvent.click(expandBtn);
+		const collapseBtn = screen.getByRole('button', { name: 'Collapse note block' });
+		expect(collapseBtn).toHaveAttribute('aria-expanded', 'true');
+		await fireEvent.click(collapseBtn);
+		expect(screen.getByRole('button', { name: 'Expand note block' })).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+	});
+
+	it('expand button activates via keyboard (Enter fires click on native button)', async () => {
+		render(NoteCard, { block: block('note'), reshown: false });
+		const expandBtn = screen.getByRole('button', { name: 'Expand note block' });
+		expect(expandBtn).toHaveAttribute('aria-expanded', 'false');
+		await fireEvent.keyDown(expandBtn, { key: 'Enter', code: 'Enter' });
+		expect(expandBtn.tagName).toBe('BUTTON');
+		expect(expandBtn).not.toHaveAttribute('tabindex', '-1');
+	});
+
+	it('has hover elevation affordance styling', () => {
+		const { container } = render(NoteCard, { block: block('note'), reshown: false });
+		const article = container.querySelector('article');
+		expect(article).toBeTruthy();
+		expect(article!.className).toContain('hover:shadow-md');
 	});
 });

@@ -1,0 +1,60 @@
+/**
+ * Glyde theme for highlight.js output.
+ *
+ * Maps highlight.js token classes to Glyde semantic CSS custom properties so all three
+ * themes (dark / light / sepia) resolve correctly at runtime via the CSS variable cascade.
+ * This file is imported by CodeCard.svelte — Vite injects it as a global stylesheet.
+ *
+ * Deliberately avoids hard-coded palette values. All colour references use the semantic
+ * tokens declared in app.css (--primary, --muted-foreground, --cue, --foreground, etc.)
+ * so dark/light/sepia switching works without any JavaScript.
+ */
+
+.hljs-keyword,
+.hljs-operator,
+.hljs-selector-tag {
+	color: var(--primary);
+	font-weight: 600;
+}
+
+.hljs-string,
+.hljs-attr {
+	color: var(--reading-dim);
+}
+
+.hljs-comment,
+.hljs-quote {
+	color: var(--muted-foreground);
+	font-style: italic;
+}
+
+.hljs-number,
+.hljs-literal {
+	color: var(--cue);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_ {
+	color: var(--foreground);
+	font-weight: 600;
+}
+
+.hljs-built_in,
+.hljs-type {
+	color: var(--foreground);
+	font-weight: 500;
+}
+
+.hljs-meta {
+	color: var(--primary);
+	font-style: italic;
+}
+
+.hljs-deletion {
+	color: var(--destructive);
+}
+
+.hljs-addition {
+	color: var(--cue);
+}
