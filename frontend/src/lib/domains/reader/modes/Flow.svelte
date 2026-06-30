@@ -56,14 +56,11 @@
 			{#each clauseWords as token, i (clause.start + i)}
 				{@const abs = clause.start + i}
 				{@const fstate = flowState(abs)}
-				<!-- Guided REMOVES already-read words; fading keeps them (to fade out). -->
+				<!-- Guided REMOVES already-read words; fading keeps them (to fade out). The single
+				     `data-flow-state` attribute is the one source of the per-word treatment (CSS keys
+				     off it), rather than mirroring it into separate classes. -->
 				{#if mode === 'fading' || fstate !== 'read'}
-					<span
-						class="fw"
-						data-flow-state={fstate}
-						class:read={fstate === 'read'}
-						class:cur={fstate === 'cur'}
-					>
+					<span class="fw" data-flow-state={fstate}>
 						<Word {token} />
 					</span>
 				{/if}
@@ -103,7 +100,7 @@
 	}
 
 	/* Fading trail: read words fade fully out (guided removes them from the DOM instead). */
-	.flow[data-mode='fading'] .fw.read {
+	.flow[data-mode='fading'] .fw[data-flow-state='read'] {
 		opacity: 0;
 	}
 
@@ -113,7 +110,7 @@
 	}
 
 	/* The current word's marker: the pivot-coloured underline (no bold — bold reflows the line). */
-	.fw.cur {
+	.fw[data-flow-state='cur'] {
 		text-decoration-line: underline;
 		text-decoration-color: var(--color-pivot);
 		text-decoration-thickness: 0.08em;

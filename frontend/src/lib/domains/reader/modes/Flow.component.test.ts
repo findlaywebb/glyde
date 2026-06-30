@@ -118,9 +118,8 @@ describe('Flow guided sweep', () => {
 		expect(texts).not.toContain('quick');
 		// The current word and the remaining road within the clause stay.
 		expect(texts).toEqual(['brown', 'fox,']);
-		const cur = must(container.querySelector('.fw.cur'));
+		const cur = must(container.querySelector('.fw[data-flow-state="cur"]'));
 		expect(cur.textContent?.trim()).toBe('brown');
-		expect(cur.getAttribute('data-flow-state')).toBe('cur');
 	});
 });
 
@@ -130,9 +129,9 @@ describe('Flow fading trail', () => {
 		const spans = fwSpans(container);
 		// All four words of the clause remain in the DOM.
 		expect(fwTexts(container)).toEqual(['the', 'quick', 'brown', 'fox,']);
-		expect(at(spans, 0).className).toContain('read');
-		expect(at(spans, 1).className).toContain('read');
-		expect(at(spans, 2).className).toContain('cur');
+		expect(at(spans, 0).getAttribute('data-flow-state')).toBe('read');
+		expect(at(spans, 1).getAttribute('data-flow-state')).toBe('read');
+		expect(at(spans, 2).getAttribute('data-flow-state')).toBe('cur');
 		expect(at(spans, 3).getAttribute('data-flow-state')).toBe('ahead');
 	});
 });
