@@ -53,7 +53,7 @@
 	<button
 		type="button"
 		aria-label={`Close ${title}`}
-		class="fixed inset-0 z-40 bg-black/50 motion-safe:animate-overlay-in"
+		class="fixed inset-0 z-40 bg-overlay motion-safe:animate-overlay-in"
 		onclick={close}
 	></button>
 
